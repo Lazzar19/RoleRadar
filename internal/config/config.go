@@ -20,6 +20,8 @@ const (
 	defaultGreenhouseEvery   = time.Hour
 	defaultGreenhouseJitter  = 10 * time.Minute
 	defaultGreenhouseBaseURL = "https://boards-api.greenhouse.io"
+	defaultMailboxEvery      = 5 * time.Minute
+	defaultMailboxJitter     = time.Minute
 	defaultMatchRole         = 30
 	defaultMatchSkills       = 30
 	defaultMatchExperience   = 20
@@ -46,6 +48,8 @@ type Config struct {
 	GreenhouseInterval    time.Duration
 	GreenhouseJitter      time.Duration
 	GreenhouseBaseURL     string
+	MailboxInterval       time.Duration
+	MailboxJitter         time.Duration
 	Sources               []ConfiguredSource
 	MatchWeightRole       int
 	MatchWeightSkills     int
@@ -110,6 +114,14 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	greenhouseJitter, err := envPositiveDuration("GREENHOUSE_JITTER", defaultGreenhouseJitter)
+	if err != nil {
+		return Config{}, err
+	}
+	mailboxEvery, err := envPositiveDuration("MAILBOX_INTERVAL", defaultMailboxEvery)
+	if err != nil {
+		return Config{}, err
+	}
+	mailboxJitter, err := envPositiveDuration("MAILBOX_JITTER", defaultMailboxJitter)
 	if err != nil {
 		return Config{}, err
 	}
@@ -181,6 +193,8 @@ func Load() (Config, error) {
 		GreenhouseInterval:    greenhouseEvery,
 		GreenhouseJitter:      greenhouseJitter,
 		GreenhouseBaseURL:     baseURL,
+		MailboxInterval:       mailboxEvery,
+		MailboxJitter:         mailboxJitter,
 		Sources:               sources,
 		MatchWeightRole:       roleWeight,
 		MatchWeightSkills:     skillsWeight,
@@ -230,13 +244,22 @@ func parseSources(raw string) ([]ConfiguredSource, error) {
 		if row.Enabled != nil {
 			enabled = *row.Enabled
 		}
+		secretEnv := strings.TrimSpace(row.SecretEnv)
+		if kind == "email" {
+			if secretEnv == "" {
+				return nil, fmt.Errorf("SOURCES email source %s needs a secret_env", name)
+			}
+			if enabled && strings.TrimSpace(os.Getenv(secretEnv)) == "" {
+				return nil, fmt.Errorf("SOURCES email source %s requires %s", name, secretEnv)
+			}
+		}
 		sources = append(sources, ConfiguredSource{
 			Name:       name,
 			Type:       kind,
 			Enabled:    enabled,
 			BoardToken: strings.TrimSpace(row.BoardToken),
 			Site:       strings.TrimSpace(row.Site),
-			SecretEnv:  strings.TrimSpace(row.SecretEnv),
+			SecretEnv:  secretEnv,
 		})
 	}
 	return sources, nil

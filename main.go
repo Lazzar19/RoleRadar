@@ -67,10 +67,12 @@ func run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	go func() {
 		defer wg.Done()
 		_ = schedule.Scheduler{
-			Store:    pool,
-			Interval: cfg.GreenhouseInterval,
-			Jitter:   cfg.GreenhouseJitter,
-			Logger:   logger,
+			Store:           pool,
+			Interval:        cfg.GreenhouseInterval,
+			Jitter:          cfg.GreenhouseJitter,
+			MailboxInterval: cfg.MailboxInterval,
+			MailboxJitter:   cfg.MailboxJitter,
+			Logger:          logger,
 		}.Run(workerCtx)
 	}()
 
@@ -93,7 +95,7 @@ func run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 			id := worker.ID(i)
 			err := worker.Worker{
 				Queue:       pool,
-				Handler:     pipeline.Handler(pool, boards, rules, cfg.NotifyRecipient, logger),
+				Handler:     pipeline.Handler(pool, boards, source.EnvMailboxes{}, rules, cfg.NotifyRecipient, logger),
 				ID:          id,
 				TaskTimeout: cfg.TaskTimeout,
 				MaxAttempts: cfg.TaskMaxAttempts,

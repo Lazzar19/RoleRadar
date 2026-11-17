@@ -144,7 +144,7 @@ func TestMatchThresholdComesFromRules(t *testing.T) {
 }
 
 func matchHandler(pool *store.Pool, rules match.Rules) func(context.Context, domain.Task) error {
-	return Handler(pool, source.Greenhouse{}, rules, "candidate", slog.New(slog.DiscardHandler))
+	return Handler(pool, source.Greenhouse{}, nil, rules, "candidate", slog.New(slog.DiscardHandler))
 }
 
 func studentProfile() domain.CandidateProfile {

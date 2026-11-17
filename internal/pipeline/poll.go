@@ -12,7 +12,7 @@ import (
 	"github.com/Lazzar19/ScoutAI/internal/worker"
 )
 
-// PollStore is the database access for one board poll.
+// PollStore is the database access for one board or mailbox poll.
 type PollStore interface {
 	Store
 	GetSource(ctx context.Context, id string) (domain.JobSource, error)
@@ -20,6 +20,9 @@ type PollStore interface {
 	FinishSourceRun(ctx context.Context, runID, status string, discovered, processed int, runErr string, finishedAt time.Time) error
 	MarkSourceChecked(ctx context.Context, sourceID string, checkedAt time.Time) error
 	MarkSourceSnapshot(ctx context.Context, sourceID string, at time.Time) error
+	FindRawMessage(ctx context.Context, sourceID, providerMessageID string) (domain.RawMessage, error)
+	InsertRawMessage(ctx context.Context, msg *domain.RawMessage) error
+	SetSourceCursor(ctx context.Context, sourceID, cursor string, at time.Time) error
 }
 
 // TaskStore is the database access for polling a board and scoring a match task.
@@ -30,16 +33,16 @@ type TaskStore interface {
 	SaveDecision(ctx context.Context, evaluation *domain.JobEvaluation, notify *domain.Notification) error
 }
 
-// Handler polls Greenhouse boards and scores match tasks.
+// Handler polls Greenhouse boards and alert mail, and scores match tasks.
 // The fetch and the score run after the claim transaction has committed.
-func Handler(db TaskStore, boards source.Greenhouse, rules match.Rules, recipient string, logger *slog.Logger) worker.Handler {
+func Handler(db TaskStore, boards source.Greenhouse, mail source.MailOpener, rules match.Rules, recipient string, logger *slog.Logger) worker.Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return func(ctx context.Context, task domain.Task) error {
 		switch task.Type {
 		case domain.TaskPoll:
-			return runPoll(ctx, db, boards, logger, task)
+			return runPoll(ctx, db, boards, mail, logger, task)
 		case domain.TaskMatch:
 			return runMatch(ctx, db, rules, recipient, logger, task)
 		default:
@@ -48,7 +51,7 @@ func Handler(db TaskStore, boards source.Greenhouse, rules match.Rules, recipien
 	}
 }
 
-func runPoll(ctx context.Context, db PollStore, boards source.Greenhouse, logger *slog.Logger, task domain.Task) error {
+func runPoll(ctx context.Context, db PollStore, boards source.Greenhouse, mail source.MailOpener, logger *slog.Logger, task domain.Task) error {
 	if task.SourceID == nil || *task.SourceID == "" {
 		return fmt.Errorf("poll task %s has no source", task.ID)
 	}
@@ -60,10 +63,17 @@ func runPoll(ctx context.Context, db PollStore, boards source.Greenhouse, logger
 		logger.Info("skip disabled source", "source", src.Name)
 		return nil
 	}
-	if src.Type != domain.SourceGreenhouse {
+	switch src.Type {
+	case domain.SourceGreenhouse:
+		return runGreenhouse(ctx, db, boards, logger, src)
+	case domain.SourceEmail:
+		return runMailbox(ctx, db, mail, logger, src)
+	default:
 		return fmt.Errorf("source %s type %s is not polled yet", src.Name, src.Type)
 	}
+}
 
+func runGreenhouse(ctx context.Context, db PollStore, boards source.Greenhouse, logger *slog.Logger, src domain.JobSource) error {
 	started := time.Now().UTC()
 	runID, err := db.StartSourceRun(ctx, src.ID, started)
 	if err != nil {

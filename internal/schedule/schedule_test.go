@@ -81,6 +81,54 @@ func TestEnqueueDuePollsGreenhouseOnce(t *testing.T) {
 	}
 }
 
+func TestEnqueueDueUsesAShorterMailboxInterval(t *testing.T) {
+	pool := openSchedulePool(t)
+	ctx := context.Background()
+	mail := domain.JobSource{
+		Name:    "linkedin-" + domain.NewID(),
+		Type:    domain.SourceEmail,
+		Enabled: true,
+		Config:  domain.SourceConfig{SecretEnv: "MAILBOX_URL"},
+	}
+	if err := pool.UpsertSource(ctx, &mail); err != nil {
+		t.Fatalf("UpsertSource() error = %v", err)
+	}
+	now := time.Date(2026, 11, 13, 12, 0, 0, 0, time.UTC)
+	sched := Scheduler{
+		Store:           pool,
+		Interval:        time.Hour,
+		MailboxInterval: 5 * time.Minute,
+		Now:             func() time.Time { return now },
+		Logger:          slog.New(slog.DiscardHandler),
+	}
+	if err := sched.EnqueueDue(ctx); err != nil {
+		t.Fatalf("EnqueueDue() error = %v", err)
+	}
+	poll, err := pool.ActivePoll(ctx, mail.ID)
+	if err != nil {
+		t.Fatalf("ActivePoll() error = %v", err)
+	}
+	finishPoll(t, ctx, pool, poll.ID)
+	if err := pool.MarkSourceChecked(ctx, mail.ID, now.Add(-2*time.Minute)); err != nil {
+		t.Fatalf("MarkSourceChecked() error = %v", err)
+	}
+	if err := sched.EnqueueDue(ctx); err != nil {
+		t.Fatalf("EnqueueDue() error = %v", err)
+	}
+	if _, err := pool.ActivePoll(ctx, mail.ID); err == nil {
+		t.Fatal("a mailbox checked two minutes ago was due before five minutes")
+	}
+	if err := pool.MarkSourceChecked(ctx, mail.ID, now.Add(-5*time.Minute)); err != nil {
+		t.Fatalf("MarkSourceChecked() error = %v", err)
+	}
+	if err := sched.EnqueueDue(ctx); err != nil {
+		t.Fatalf("EnqueueDue() error = %v", err)
+	}
+	if _, err := pool.ActivePoll(ctx, mail.ID); err != nil {
+		t.Fatalf("ActivePoll() after mailbox interval error = %v", err)
+	}
+}
+
 func finishPoll(t *testing.T, ctx context.Context, pool *store.Pool, pollID string) {
 	t.Helper()
 	for {

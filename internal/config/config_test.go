@@ -29,6 +29,8 @@ func TestLoadAllowsMissingFeatureSecrets(t *testing.T) {
 	t.Setenv("GREENHOUSE_INTERVAL", "")
 	t.Setenv("GREENHOUSE_JITTER", "")
 	t.Setenv("GREENHOUSE_API_BASE", "")
+	t.Setenv("MAILBOX_INTERVAL", "")
+	t.Setenv("MAILBOX_JITTER", "")
 	t.Setenv("SOURCES", "")
 	t.Setenv("MATCH_WEIGHT_ROLE", "")
 	t.Setenv("MATCH_WEIGHT_SKILLS", "")
@@ -59,6 +61,9 @@ func TestLoadAllowsMissingFeatureSecrets(t *testing.T) {
 	}
 	if cfg.GreenhouseInterval != defaultGreenhouseEvery || cfg.GreenhouseJitter != defaultGreenhouseJitter {
 		t.Fatalf("greenhouse interval = %s jitter = %s", cfg.GreenhouseInterval, cfg.GreenhouseJitter)
+	}
+	if cfg.MailboxInterval != defaultMailboxEvery || cfg.MailboxJitter != defaultMailboxJitter {
+		t.Fatalf("mailbox interval = %s jitter = %s", cfg.MailboxInterval, cfg.MailboxJitter)
 	}
 	if len(cfg.Sources) != 0 || cfg.GreenhouseBaseURL != defaultGreenhouseBaseURL {
 		t.Fatalf("sources = %+v base = %s", cfg.Sources, cfg.GreenhouseBaseURL)
@@ -93,6 +98,34 @@ func TestLoadParsesGreenhouseSources(t *testing.T) {
 	t.Setenv("SOURCES", `[{"name":"greenhouse-example","type":"greenhouse"}]`)
 	if _, err := Load(); err == nil {
 		t.Fatal("Load() error = nil, want a missing board token error")
+	}
+}
+
+func TestLoadRequiresMailboxSecretWhenEmailIsEnabled(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://scout:scout@127.0.0.1:5432/scout?sslmode=disable")
+	t.Setenv("PORT", "")
+	t.Setenv("MAILBOX_URL", "")
+	t.Setenv("SOURCES", `[{"name":"linkedin-alerts","type":"email","secret_env":"MAILBOX_URL"}]`)
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil, want a missing mailbox secret error")
+	}
+
+	t.Setenv("SOURCES", `[{"name":"linkedin-alerts","type":"email","enabled":false}]`)
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil, want a missing secret_env error")
+	}
+
+	t.Setenv("MAILBOX_URL", "imaps://student:secret@imap.example:993/INBOX")
+	t.Setenv("SOURCES", `[{"name":"linkedin-alerts","type":"email","secret_env":"MAILBOX_URL"}]`)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if len(cfg.Sources) != 1 || cfg.Sources[0].Type != "email" || cfg.Sources[0].SecretEnv != "MAILBOX_URL" || !cfg.Sources[0].Enabled {
+		t.Fatalf("sources = %+v", cfg.Sources)
+	}
+	if cfg.MailboxURL != "imaps://student:secret@imap.example:993/INBOX" {
+		t.Fatal("mailbox url was not loaded")
 	}
 }
 
