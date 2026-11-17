@@ -11,6 +11,7 @@
 
 PLAN.md
 *.md
+!prompts/extract-posting-v1.md
 
 bin
 dist
