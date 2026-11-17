@@ -117,13 +117,14 @@ func (w Worker) finish(ctx context.Context, task domain.Task) {
 	writeCtx, writeCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer writeCancel()
 	if err != nil {
-		w.Logger.Warn("task failed", "worker", w.ID, "task_id", task.ID, "attempts", task.Attempts, "err", err)
 		if task.Attempts+1 >= w.MaxAttempts {
+			w.Logger.Error("task failed", "worker", w.ID, "task_id", task.ID, "type", task.Type, "attempts", task.Attempts+1, "err", err)
 			if failErr := w.Queue.FailTask(writeCtx, w.ID, task.ID, err); failErr != nil {
 				w.Logger.Error("fail task", "worker", w.ID, "task_id", task.ID, "err", failErr)
 			}
 			return
 		}
+		w.Logger.Warn("task failed", "worker", w.ID, "task_id", task.ID, "type", task.Type, "attempts", task.Attempts+1, "err", err)
 		delay := backoff(task.Attempts+1, w.RetryBase)
 		if retryErr := w.Queue.RetryTask(writeCtx, w.ID, task.ID, time.Now().Add(delay), err); retryErr != nil {
 			w.Logger.Error("retry task", "worker", w.ID, "task_id", task.ID, "err", retryErr)

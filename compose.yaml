@@ -1,6 +1,7 @@
 # Local stack for the discovery process.
+# Run one app service. A second copy fetches the same boards twice.
 # POSTGRES_PASSWORD below is a development fallback so `docker compose up` works
-# without a secret file. Override it in an untracked .env before any shared use.
+# without a secret file. Set it in an untracked .env before any shared use.
 
 services:
   app:
@@ -12,6 +13,19 @@ services:
     environment:
       DATABASE_URL: postgres://scout:${POSTGRES_PASSWORD:-scout}@postgres:5432/scout?sslmode=disable
       PORT: "8080"
+      TELEGRAM_TOKEN: ${TELEGRAM_TOKEN:-}
+      TELEGRAM_USER_ID: ${TELEGRAM_USER_ID:-}
+      TELEGRAM_API_BASE: ${TELEGRAM_API_BASE:-}
+      MAILBOX_URL: ${MAILBOX_URL:-}
+      SOURCES: ${SOURCES:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_API_BASE: ${LLM_API_BASE:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      EXTRACT_MIN_CHARS: ${EXTRACT_MIN_CHARS:-}
+      EXTRACT_MAX_CHARS: ${EXTRACT_MAX_CHARS:-}
+      EXTRACT_DAILY_TOKENS: ${EXTRACT_DAILY_TOKENS:-}
+      NOTIFY_PREVIEW: ${NOTIFY_PREVIEW:-}
+      NOTIFY_EVALUATED: ${NOTIFY_EVALUATED:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,5 +55,22 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  backup:
+    image: postgres:17
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-scout}
+      PGHOST: postgres
+      PGUSER: scout
+      PGDATABASE: scout
+    volumes:
+      - backups:/backups
+      - ./deploy/backup.sh:/backup.sh:ro
+    entrypoint: ["sh", "/backup.sh"]
+    restart: unless-stopped
+
 volumes:
   postgres-data:
+  backups:
