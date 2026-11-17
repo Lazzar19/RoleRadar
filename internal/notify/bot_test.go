@@ -115,7 +115,7 @@ func TestAddStoresAPreviewAndScoresTheReply(t *testing.T) {
 		t.Fatalf("original url after text = %s", ref.OriginalURL)
 	}
 
-	handle := pipeline.Handler(pool, source.Greenhouse{}, nil, pipeline.Scoring{Rules: match.DefaultRules()}, userID, slog.New(slog.DiscardHandler))
+	handle := pipeline.Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, nil, pipeline.Scoring{Rules: match.DefaultRules()}, userID, slog.New(slog.DiscardHandler))
 	if err := handle(ctx, matchTask(upgraded, profile.Version)); err != nil {
 		t.Fatalf("match error = %v", err)
 	}
@@ -167,7 +167,7 @@ func TestPreviewReplyBecomesAnEvaluatedMessage(t *testing.T) {
 	sends, server := telegramServer(t, http.StatusOK)
 	defer server.Close()
 	bot := testBot(pool, userID, server)
-	handle := pipeline.Handler(pool, source.Greenhouse{}, nil, pipeline.Scoring{Rules: match.DefaultRules()}, userID, slog.New(slog.DiscardHandler))
+	handle := pipeline.Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, nil, pipeline.Scoring{Rules: match.DefaultRules()}, userID, slog.New(slog.DiscardHandler))
 	if err := handle(ctx, matchTask(job, profile.Version)); err != nil {
 		t.Fatalf("preview match error = %v", err)
 	}

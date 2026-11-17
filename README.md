@@ -6,7 +6,7 @@ ScoutAI watches internship and job sources and sends a Telegram message when a p
 
 The process applies database migrations, then starts the scheduler, the queue workers, the Telegram long poll, and the health server. The scheduler only enqueues work. A worker claims one task, fetches a board or mailbox, or scores one job, and then commits the result. Run a single copy of this process. A second copy schedules the same boards twice.
 
-Greenhouse boards and LinkedIn alert mail are polled on a timer. `/add` stores a link without opening it. A preview has no description and is not sent to a model. A full description is scored with rules. When `LLM_API_KEY` is set, a long description is sent to one OpenAI-compatible model first. The model returns quoted facts. The rules score those facts. The model does not send a notification.
+Greenhouse boards, Lever sites, career-page JSON feeds, and LinkedIn alert mail are polled on a timer. `/add` stores a link without opening it. A preview has no description and is not sent to a model. A full description is scored with rules. When `LLM_API_KEY` is set, a long description is sent to one OpenAI-compatible model first. The model returns quoted facts. The rules score those facts. The model does not send a notification.
 
 `GET /health` reports that the process is up. `GET /ready` pings PostgreSQL.
 
@@ -22,6 +22,9 @@ The process reads configuration from the environment. `DATABASE_URL` is required
 | `TELEGRAM_USER_ID` | when the token is set | |
 | `MAILBOX_URL` | when an enabled email source names it in `secret_env` | empty |
 | `SOURCES` | no | empty JSON array |
+| `LEVER_API_BASE` | no | `https://api.lever.co` |
+| `CAREER_INTERVAL` | no | `6h` |
+| `CAREER_JITTER` | no | `30m` |
 | `LLM_API_KEY` | only for extraction | empty, rules score the description |
 | `LLM_API_BASE` | no | `https://api.openai.com/v1` |
 | `LLM_MODEL` | no | `gpt-4o-mini` |
@@ -32,7 +35,25 @@ The process reads configuration from the environment. `DATABASE_URL` is required
 
 Put secrets in an untracked `.env` next to `compose.yaml`. Do not commit that file. `POSTGRES_PASSWORD=scout` is a local fallback. Set a different password before anyone else can reach the host.
 
-`SOURCES` is a JSON array. A Greenhouse source needs `board_token`. An email source needs `secret_env`, and that variable must be set while the source is enabled.
+`SOURCES` is a JSON array. A Greenhouse source needs `board_token`. A Lever source needs `site`. A career source needs an `https` `feed_url` whose body is `{"jobs":[{"id","title","url","description","company","location","employment_type","posted_at"}]}`. The career poll requests that URL and does not follow links or read HTML. An email source needs `secret_env`, and that variable must be set while the source is enabled.
+
+HelloWorld (`helloworld.rs`) has no documented public API or RSS feed, and the terms page does not grant a crawl. The agent does not fetch it. Send the posting URL with `/add`, then reply with the text. The same path is used for LinkedIn links.
+
+Greenhouse and Lever boards are polled about once an hour. A career feed is polled about every six hours. A failed or partial fetch does not close jobs.
+
+## Weights
+
+Feedback buttons store a choice. They do not change weights or the profile version. `interesting` and `not relevant` become the labeled set. Saved and already-applied choices stay out of that set.
+
+Compare a weight change before you edit the environment:
+
+```sh
+PROPOSED_MATCH_THRESHOLD=80 go run . compare
+```
+
+The command prints how many labeled jobs the current rules and the proposed rules would notify. It does not write evaluations, profiles, or weights. Set `MATCH_WEIGHT_*` or `MATCH_THRESHOLD` and restart only after that report. A changed weight uses a new evaluation key. The previous evaluation row stays. Stored facts are scored again without another model call.
+
+Editing a profile replaces that profile row and bumps its version. Previous evaluation rows stay in the table.
 
 ## Run
 

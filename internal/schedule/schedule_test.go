@@ -145,6 +145,54 @@ func finishPoll(t *testing.T, ctx context.Context, pool *store.Pool, pollID stri
 	}
 }
 
+func TestCareerIntervalIsSlowerThanABoard(t *testing.T) {
+	pool := openSchedulePool(t)
+	ctx := context.Background()
+	now := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
+	src := domain.JobSource{
+		Name:    "career-" + domain.NewID(),
+		Type:    domain.SourceCareer,
+		Enabled: true,
+		Config:  domain.SourceConfig{FeedURL: "https://careers.example/jobs.json"},
+	}
+	if err := pool.UpsertSource(ctx, &src); err != nil {
+		t.Fatalf("UpsertSource() error = %v", err)
+	}
+	sched := Scheduler{
+		Store:          pool,
+		Interval:       time.Hour,
+		CareerInterval: 6 * time.Hour,
+		Now:            func() time.Time { return now },
+		Logger:         slog.New(slog.DiscardHandler),
+	}
+	if err := sched.EnqueueDue(ctx); err != nil {
+		t.Fatalf("EnqueueDue() error = %v", err)
+	}
+	poll, err := pool.ActivePoll(ctx, src.ID)
+	if err != nil {
+		t.Fatalf("ActivePoll() error = %v", err)
+	}
+	finishPoll(t, ctx, pool, poll.ID)
+	if err := pool.MarkSourceChecked(ctx, src.ID, now.Add(-2*time.Hour)); err != nil {
+		t.Fatalf("MarkSourceChecked() error = %v", err)
+	}
+	if err := sched.EnqueueDue(ctx); err != nil {
+		t.Fatalf("EnqueueDue() error = %v", err)
+	}
+	if _, err := pool.ActivePoll(ctx, src.ID); err == nil {
+		t.Fatal("a career page checked two hours ago was due before six hours")
+	}
+	if err := pool.MarkSourceChecked(ctx, src.ID, now.Add(-6*time.Hour)); err != nil {
+		t.Fatalf("MarkSourceChecked() error = %v", err)
+	}
+	if err := sched.EnqueueDue(ctx); err != nil {
+		t.Fatalf("EnqueueDue() error = %v", err)
+	}
+	if _, err := pool.ActivePoll(ctx, src.ID); err != nil {
+		t.Fatalf("ActivePoll() after career interval error = %v", err)
+	}
+}
+
 func openSchedulePool(t *testing.T) *store.Pool {
 	t.Helper()
 	databaseURL := os.Getenv("DATABASE_URL")

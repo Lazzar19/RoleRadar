@@ -18,6 +18,12 @@ func TestAcceptURLAllowsLinkedInAndConfiguredBoards(t *testing.T) {
 	if err != nil || linkedin == "" {
 		t.Fatalf("AcceptURL(linkedin) = %q, %v", linkedin, err)
 	}
+	if _, err := AcceptURL("https://www.helloworld.rs/posao/example", nil); err != nil {
+		t.Fatalf("AcceptURL(helloworld) error = %v", err)
+	}
+	if _, err := AcceptURL("https://helloworld.rs.evil.test/posao/1", nil); !errors.Is(err, ErrHostNotAllowed) {
+		t.Fatalf("helloworld lookalike error = %v", err)
+	}
 	if _, err := AcceptURL("https://boards.greenhouse.io/acme/jobs/1", nil); !errors.Is(err, ErrHostNotAllowed) {
 		t.Fatalf("greenhouse without a source error = %v", err)
 	}

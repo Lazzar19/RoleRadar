@@ -25,7 +25,8 @@ var (
 )
 
 // AcceptURL checks a submitted URL against the allowlist and does not fetch it.
-// linkedin.com is always allowed. Greenhouse and Lever hosts are allowed when an enabled source of that type is configured.
+// linkedin.com and helloworld.rs are always allowed. Greenhouse and Lever hosts are allowed when an enabled source of that type is configured.
+// helloworld.rs has no documented API or feed, so a submitted URL is stored and not requested.
 func AcceptURL(raw string, sources []domain.JobSource) (string, error) {
 	raw = strings.TrimSpace(raw)
 	parsed, err := url.Parse(raw)
@@ -47,7 +48,7 @@ func AcceptURL(raw string, sources []domain.JobSource) (string, error) {
 }
 
 func submissionHosts(sources []domain.JobSource) []string {
-	hosts := []string{"linkedin.com"}
+	hosts := []string{"linkedin.com", "helloworld.rs"}
 	var greenhouse, lever bool
 	for _, src := range sources {
 		if !src.Enabled {

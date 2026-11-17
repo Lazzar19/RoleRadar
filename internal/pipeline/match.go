@@ -33,11 +33,11 @@ func runMatch(ctx context.Context, db TaskStore, scoring Scoring, recipient stri
 		return err
 	}
 
-	promptVersion := match.RulesPrompt
+	promptVersion := scoring.Rules.Version()
 	modelName := match.RulesModel
 	var facts *domain.Extraction
 	if job.Completeness == domain.CompletenessFull && scoring.Extractor != nil && longEnough(job.Description, scoring.MinChars) {
-		promptVersion = extract.PromptVersion
+		promptVersion = extractPrompt(scoring.Rules)
 		modelName = scoring.Model
 		if strings.TrimSpace(modelName) == "" {
 			modelName = extract.DefaultModel
@@ -50,26 +50,33 @@ func runMatch(ctx context.Context, db TaskStore, scoring Scoring, recipient stri
 			logger.Info("match evaluation reused", "task_id", task.ID, "job_id", job.ID, "model", modelName)
 			return nil
 		}
-		started := time.Now()
-		extracted, extractErr := scoring.Extractor.Extract(ctx, job)
-		elapsed := time.Since(started).Milliseconds()
-		if errors.Is(extractErr, extract.ErrBudget) {
-			logger.Info("extractor budget spent", "task_id", task.ID, "job_id", job.ID, "model", modelName, "duration_ms", elapsed)
-			promptVersion = match.RulesPrompt
-			modelName = match.RulesModel
-		} else if extractErr != nil {
-			logger.Warn("extractor finished", "task_id", task.ID, "job_id", job.ID, "model", modelName, "duration_ms", elapsed, "err", extractErr)
-			return extractErr
-		} else if err := extract.Validate(extracted, extract.PostingText(job, scoring.MaxChars)); err != nil {
-			logger.Warn("extractor finished", "task_id", task.ID, "job_id", job.ID, "model", modelName, "duration_ms", elapsed, "err", err)
+		if reused, err := storedFacts(ctx, db, job, profile.Version, modelName, scoring.MaxChars); err != nil {
 			return err
+		} else if reused != nil {
+			logger.Info("extractor facts reused", "task_id", task.ID, "job_id", job.ID, "model", modelName)
+			facts = reused
 		} else {
-			logger.Info("extractor finished", "task_id", task.ID, "job_id", job.ID, "model", modelName, "duration_ms", elapsed)
-			facts = &extracted
+			started := time.Now()
+			extracted, extractErr := scoring.Extractor.Extract(ctx, job)
+			elapsed := time.Since(started).Milliseconds()
+			if errors.Is(extractErr, extract.ErrBudget) {
+				logger.Info("extractor budget spent", "task_id", task.ID, "job_id", job.ID, "model", modelName, "duration_ms", elapsed)
+				promptVersion = scoring.Rules.Version()
+				modelName = match.RulesModel
+			} else if extractErr != nil {
+				logger.Warn("extractor finished", "task_id", task.ID, "job_id", job.ID, "model", modelName, "duration_ms", elapsed, "err", extractErr)
+				return extractErr
+			} else if err := extract.Validate(extracted, extract.PostingText(job, scoring.MaxChars)); err != nil {
+				logger.Warn("extractor finished", "task_id", task.ID, "job_id", job.ID, "model", modelName, "duration_ms", elapsed, "err", err)
+				return err
+			} else {
+				logger.Info("extractor finished", "task_id", task.ID, "job_id", job.ID, "model", modelName, "duration_ms", elapsed)
+				facts = &extracted
+			}
 		}
 	}
 	if facts == nil {
-		hit, err := evaluationCached(ctx, db, job, profile.Version, match.RulesPrompt, match.RulesModel)
+		hit, err := evaluationCached(ctx, db, job, profile.Version, scoring.Rules.Version(), match.RulesModel)
 		if err != nil {
 			return err
 		}
@@ -77,7 +84,7 @@ func runMatch(ctx context.Context, db TaskStore, scoring Scoring, recipient stri
 			logger.Info("match evaluation reused", "task_id", task.ID, "job_id", job.ID, "model", match.RulesModel)
 			return nil
 		}
-		promptVersion = match.RulesPrompt
+		promptVersion = scoring.Rules.Version()
 		modelName = match.RulesModel
 	}
 
@@ -147,4 +154,30 @@ func longEnough(description string, minChars int) bool {
 		minChars = extract.DefaultMinChars
 	}
 	return utf8.RuneCountInString(strings.TrimSpace(description)) >= minChars
+}
+
+func extractPrompt(rules match.Rules) string {
+	version := rules.Version()
+	if version == match.RulesPrompt {
+		return extract.PromptVersion
+	}
+	return extract.PromptVersion + "+" + strings.TrimPrefix(version, match.RulesPrompt+"+")
+}
+
+func storedFacts(ctx context.Context, db TaskStore, job domain.Job, profileVersion int, modelName string, maxChars int) (*domain.Extraction, error) {
+	raw, err := db.FindExtraction(ctx, job.ID, profileVersion, job.ContentHash, modelName)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var facts domain.Extraction
+	if err := json.Unmarshal(raw, &facts); err != nil {
+		return nil, nil
+	}
+	if err := extract.Validate(facts, extract.PostingText(job, maxChars)); err != nil {
+		return nil, nil
+	}
+	return &facts, nil
 }

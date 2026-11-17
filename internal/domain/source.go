@@ -8,6 +8,7 @@ type SourceType string
 const (
 	SourceGreenhouse SourceType = "greenhouse"
 	SourceLever      SourceType = "lever"
+	SourceCareer     SourceType = "career"
 	SourceEmail      SourceType = "email"
 	SourceManual     SourceType = "manual"
 )
@@ -17,6 +18,7 @@ const (
 type SourceConfig struct {
 	BoardToken string `json:"board_token,omitempty"`
 	Site       string `json:"site,omitempty"`
+	FeedURL    string `json:"feed_url,omitempty"`
 	SecretEnv  string `json:"secret_env,omitempty"`
 }
 

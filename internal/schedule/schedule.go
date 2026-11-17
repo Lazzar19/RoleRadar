@@ -24,6 +24,8 @@ type Scheduler struct {
 	Jitter          time.Duration
 	MailboxInterval time.Duration
 	MailboxJitter   time.Duration
+	CareerInterval  time.Duration
+	CareerJitter    time.Duration
 	Wake            time.Duration
 	Now             func() time.Time
 	Logger          *slog.Logger
@@ -86,13 +88,18 @@ func (s Scheduler) EnqueueDue(ctx context.Context) error {
 
 func (s Scheduler) cadence(src domain.JobSource) (time.Duration, time.Duration, bool) {
 	switch src.Type {
-	case domain.SourceGreenhouse:
+	case domain.SourceGreenhouse, domain.SourceLever:
 		return s.Interval, Jitter(src.ID, s.Jitter), true
 	case domain.SourceEmail:
 		if s.MailboxInterval <= 0 {
 			return 0, 0, false
 		}
 		return s.MailboxInterval, Jitter(src.ID, s.MailboxJitter), true
+	case domain.SourceCareer:
+		if s.CareerInterval <= 0 {
+			return 0, 0, false
+		}
+		return s.CareerInterval, Jitter(src.ID, s.CareerJitter), true
 	default:
 		return 0, 0, false
 	}

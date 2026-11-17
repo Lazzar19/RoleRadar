@@ -1,6 +1,7 @@
 package match
 
 import (
+	"fmt"
 	"math"
 	"strings"
 
@@ -10,7 +11,8 @@ import (
 const (
 	// RulesModel is the cache-key model for a decision that did not call an extractor.
 	RulesModel = "rules"
-	// RulesPrompt is the cache-key prompt version for the rule scorer.
+	// RulesPrompt is the cache-key prompt version for the default rule scorer.
+	// A different weight or threshold uses Rules.Version so the previous row stays.
 	RulesPrompt = "rules-v1"
 )
 
@@ -35,6 +37,15 @@ func DefaultRules() Rules {
 		Weights:   Weights{Role: 30, Skills: 30, Experience: 20, Location: 10, Company: 10},
 		Threshold: 70,
 	}
+}
+
+// Version is the evaluation cache key for these weights.
+// The default weights keep rules-v1. Any other weights use a new key, and the old row stays.
+func (r Rules) Version() string {
+	if r == DefaultRules() {
+		return RulesPrompt
+	}
+	return fmt.Sprintf("%s+%d.%d.%d.%d.%d.t%d", RulesPrompt, r.Weights.Role, r.Weights.Skills, r.Weights.Experience, r.Weights.Location, r.Weights.Company, r.Threshold)
 }
 
 // Outcome is one decision. Preview scores stay nil. A nil component was unknown, not a mismatch.

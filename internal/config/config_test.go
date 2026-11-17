@@ -31,6 +31,9 @@ func TestLoadAllowsMissingFeatureSecrets(t *testing.T) {
 	t.Setenv("GREENHOUSE_API_BASE", "")
 	t.Setenv("MAILBOX_INTERVAL", "")
 	t.Setenv("MAILBOX_JITTER", "")
+	t.Setenv("LEVER_API_BASE", "")
+	t.Setenv("CAREER_INTERVAL", "")
+	t.Setenv("CAREER_JITTER", "")
 	t.Setenv("SOURCES", "")
 	t.Setenv("MATCH_WEIGHT_ROLE", "")
 	t.Setenv("MATCH_WEIGHT_SKILLS", "")
@@ -69,6 +72,9 @@ func TestLoadAllowsMissingFeatureSecrets(t *testing.T) {
 	}
 	if cfg.MailboxInterval != defaultMailboxEvery || cfg.MailboxJitter != defaultMailboxJitter {
 		t.Fatalf("mailbox interval = %s jitter = %s", cfg.MailboxInterval, cfg.MailboxJitter)
+	}
+	if cfg.LeverBaseURL != defaultLeverBaseURL || cfg.CareerInterval != defaultCareerEvery || cfg.CareerJitter != defaultCareerJitter {
+		t.Fatalf("lever = %s career = %s jitter = %s", cfg.LeverBaseURL, cfg.CareerInterval, cfg.CareerJitter)
 	}
 	if len(cfg.Sources) != 0 || cfg.GreenhouseBaseURL != defaultGreenhouseBaseURL {
 		t.Fatalf("sources = %+v base = %s", cfg.Sources, cfg.GreenhouseBaseURL)
@@ -212,5 +218,26 @@ func TestLoadRejectsBadPort(t *testing.T) {
 	_, err := Load()
 	if err == nil {
 		t.Fatal("Load() error = nil, want an invalid PORT error")
+	}
+}
+
+func TestLoadParsesLeverAndCareerSources(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://scout:scout@127.0.0.1:5432/scout?sslmode=disable")
+	t.Setenv("PORT", "")
+	t.Setenv("SOURCES", `[{"name":"lever-example","type":"lever"}]`)
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil, want a missing lever site error")
+	}
+	t.Setenv("SOURCES", `[{"name":"career-example","type":"career","feed_url":"http://careers.example/jobs.json"}]`)
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil, want an https feed error")
+	}
+	t.Setenv("SOURCES", `[{"name":"lever-example","type":"lever","site":"acme"},{"name":"career-example","type":"career","feed_url":"https://careers.example/jobs.json"}]`)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if len(cfg.Sources) != 2 || cfg.Sources[0].Site != "acme" || cfg.Sources[1].FeedURL != "https://careers.example/jobs.json" {
+		t.Fatalf("sources = %+v", cfg.Sources)
 	}
 }

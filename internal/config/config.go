@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -22,6 +23,9 @@ const (
 	defaultGreenhouseBaseURL  = "https://boards-api.greenhouse.io"
 	defaultMailboxEvery       = 5 * time.Minute
 	defaultMailboxJitter      = time.Minute
+	defaultLeverBaseURL       = "https://api.lever.co"
+	defaultCareerEvery        = 6 * time.Hour
+	defaultCareerJitter       = 30 * time.Minute
 	defaultMatchRole          = 30
 	defaultMatchSkills        = 30
 	defaultMatchExperience    = 20
@@ -58,8 +62,11 @@ type Config struct {
 	GreenhouseInterval    time.Duration
 	GreenhouseJitter      time.Duration
 	GreenhouseBaseURL     string
+	LeverBaseURL          string
 	MailboxInterval       time.Duration
 	MailboxJitter         time.Duration
+	CareerInterval        time.Duration
+	CareerJitter          time.Duration
 	Sources               []ConfiguredSource
 	MatchWeightRole       int
 	MatchWeightSkills     int
@@ -80,6 +87,7 @@ type ConfiguredSource struct {
 	Enabled    bool
 	BoardToken string
 	Site       string
+	FeedURL    string
 	SecretEnv  string
 }
 
@@ -135,6 +143,14 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	careerEvery, err := envPositiveDuration("CAREER_INTERVAL", defaultCareerEvery)
+	if err != nil {
+		return Config{}, err
+	}
+	careerJitter, err := envPositiveDuration("CAREER_JITTER", defaultCareerJitter)
+	if err != nil {
+		return Config{}, err
+	}
 	sources, err := parseSources(os.Getenv("SOURCES"))
 	if err != nil {
 		return Config{}, err
@@ -142,6 +158,10 @@ func Load() (Config, error) {
 	baseURL := strings.TrimSpace(os.Getenv("GREENHOUSE_API_BASE"))
 	if baseURL == "" {
 		baseURL = defaultGreenhouseBaseURL
+	}
+	leverBase := strings.TrimRight(strings.TrimSpace(os.Getenv("LEVER_API_BASE")), "/")
+	if leverBase == "" {
+		leverBase = defaultLeverBaseURL
 	}
 	roleWeight, err := envNonNegativeInt("MATCH_WEIGHT_ROLE", defaultMatchRole)
 	if err != nil {
@@ -228,8 +248,11 @@ func Load() (Config, error) {
 		GreenhouseInterval:    greenhouseEvery,
 		GreenhouseJitter:      greenhouseJitter,
 		GreenhouseBaseURL:     baseURL,
+		LeverBaseURL:          leverBase,
 		MailboxInterval:       mailboxEvery,
 		MailboxJitter:         mailboxJitter,
+		CareerInterval:        careerEvery,
+		CareerJitter:          careerJitter,
 		Sources:               sources,
 		MatchWeightRole:       roleWeight,
 		MatchWeightSkills:     skillsWeight,
@@ -255,6 +278,7 @@ func parseSources(raw string) ([]ConfiguredSource, error) {
 		Enabled    *bool  `json:"enabled"`
 		BoardToken string `json:"board_token"`
 		Site       string `json:"site"`
+		FeedURL    string `json:"feed_url"`
 		SecretEnv  string `json:"secret_env"`
 	}
 	if err := json.Unmarshal([]byte(raw), &rows); err != nil {
@@ -275,6 +299,15 @@ func parseSources(raw string) ([]ConfiguredSource, error) {
 		if kind == "greenhouse" && strings.TrimSpace(row.BoardToken) == "" {
 			return nil, fmt.Errorf("SOURCES greenhouse source %s needs a board_token", name)
 		}
+		if kind == "lever" && strings.TrimSpace(row.Site) == "" {
+			return nil, fmt.Errorf("SOURCES lever source %s needs a site", name)
+		}
+		feedURL := strings.TrimSpace(row.FeedURL)
+		if kind == "career" {
+			if err := careerFeedURL(feedURL); err != nil {
+				return nil, fmt.Errorf("SOURCES career source %s needs an https feed_url", name)
+			}
+		}
 		enabled := true
 		if row.Enabled != nil {
 			enabled = *row.Enabled
@@ -294,10 +327,23 @@ func parseSources(raw string) ([]ConfiguredSource, error) {
 			Enabled:    enabled,
 			BoardToken: strings.TrimSpace(row.BoardToken),
 			Site:       strings.TrimSpace(row.Site),
+			FeedURL:    feedURL,
 			SecretEnv:  secretEnv,
 		})
 	}
 	return sources, nil
+}
+
+func careerFeedURL(raw string) error {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed == nil || parsed.Hostname() == "" || parsed.User != nil || parsed.Scheme != "https" {
+		return fmt.Errorf("career feed url must be https")
+	}
+	host := strings.TrimSuffix(strings.ToLower(parsed.Hostname()), ".")
+	if host == "helloworld.rs" || strings.HasSuffix(host, ".helloworld.rs") || host == "linkedin.com" || strings.HasSuffix(host, ".linkedin.com") {
+		return fmt.Errorf("career feed host is not allowed")
+	}
+	return nil
 }
 
 func envPositiveInt(key string, fallback int) (int, error) {
