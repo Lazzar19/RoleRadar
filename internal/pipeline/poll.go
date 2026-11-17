@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/ScoutAI/internal/extract"
 	"github.com/Lazzar19/ScoutAI/internal/match"
 	"github.com/Lazzar19/ScoutAI/internal/source"
 	"github.com/Lazzar19/ScoutAI/internal/worker"
@@ -30,12 +31,23 @@ type TaskStore interface {
 	PollStore
 	GetJob(ctx context.Context, id string) (domain.Job, error)
 	GetProfileByVersion(ctx context.Context, version int) (domain.CandidateProfile, error)
+	FindEvaluationByKey(ctx context.Context, jobID string, profileVersion int, contentHash, promptVersion, model string) (domain.JobEvaluation, error)
 	SaveDecision(ctx context.Context, evaluation *domain.JobEvaluation, notify *domain.Notification) error
+}
+
+// Scoring is the rule configuration and the optional fact extractor.
+// A nil Extractor keeps the rules-only path.
+type Scoring struct {
+	Rules     match.Rules
+	Extractor extract.Extractor
+	Model     string
+	MinChars  int
+	MaxChars  int
 }
 
 // Handler polls Greenhouse boards and alert mail, and scores match tasks.
 // The fetch and the score run after the claim transaction has committed.
-func Handler(db TaskStore, boards source.Greenhouse, mail source.MailOpener, rules match.Rules, recipient string, logger *slog.Logger) worker.Handler {
+func Handler(db TaskStore, boards source.Greenhouse, mail source.MailOpener, scoring Scoring, recipient string, logger *slog.Logger) worker.Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -44,7 +56,7 @@ func Handler(db TaskStore, boards source.Greenhouse, mail source.MailOpener, rul
 		case domain.TaskPoll:
 			return runPoll(ctx, db, boards, mail, logger, task)
 		case domain.TaskMatch:
-			return runMatch(ctx, db, rules, recipient, logger, task)
+			return runMatch(ctx, db, scoring, recipient, logger, task)
 		default:
 			return fmt.Errorf("unknown task type %s", task.Type)
 		}
@@ -65,15 +77,15 @@ func runPoll(ctx context.Context, db PollStore, boards source.Greenhouse, mail s
 	}
 	switch src.Type {
 	case domain.SourceGreenhouse:
-		return runGreenhouse(ctx, db, boards, logger, src)
+		return runGreenhouse(ctx, db, boards, logger, task.ID, src)
 	case domain.SourceEmail:
-		return runMailbox(ctx, db, mail, logger, src)
+		return runMailbox(ctx, db, mail, logger, task.ID, src)
 	default:
 		return fmt.Errorf("source %s type %s is not polled yet", src.Name, src.Type)
 	}
 }
 
-func runGreenhouse(ctx context.Context, db PollStore, boards source.Greenhouse, logger *slog.Logger, src domain.JobSource) error {
+func runGreenhouse(ctx context.Context, db PollStore, boards source.Greenhouse, logger *slog.Logger, taskID string, src domain.JobSource) error {
 	started := time.Now().UTC()
 	runID, err := db.StartSourceRun(ctx, src.ID, started)
 	if err != nil {
@@ -81,6 +93,7 @@ func runGreenhouse(ctx context.Context, db PollStore, boards source.Greenhouse, 
 	}
 	snapshot, fetchErr := boards.Fetch(ctx, src.Config.BoardToken)
 	if fetchErr != nil {
+		logger.Error("source run failed", "run_id", runID, "task_id", taskID, "source", src.Name, "err", fetchErr)
 		_ = db.FinishSourceRun(ctx, runID, "failed", 0, 0, fetchErr.Error(), time.Now().UTC())
 		_ = db.MarkSourceChecked(ctx, src.ID, time.Now().UTC())
 		return fetchErr
@@ -88,6 +101,7 @@ func runGreenhouse(ctx context.Context, db PollStore, boards source.Greenhouse, 
 	result, err := Apply(ctx, db, src, snapshot, time.Now().UTC())
 	finished := time.Now().UTC()
 	if err != nil {
+		logger.Error("source run failed", "run_id", runID, "task_id", taskID, "source", src.Name, "err", err)
 		_ = db.FinishSourceRun(ctx, runID, "failed", len(snapshot.Postings)+len(snapshot.ItemErrors), result.Stored, err.Error(), finished)
 		_ = db.MarkSourceChecked(ctx, src.ID, finished)
 		return err
@@ -107,6 +121,6 @@ func runGreenhouse(ctx context.Context, db PollStore, boards source.Greenhouse, 
 			return err
 		}
 	}
-	logger.Info("greenhouse snapshot stored", "source", src.Name, "stored", result.Stored, "closed", result.Closed)
+	logger.Info("greenhouse snapshot stored", "run_id", runID, "task_id", taskID, "source", src.Name, "discovered", len(snapshot.Postings)+len(snapshot.ItemErrors), "stored", result.Stored, "closed", result.Closed)
 	return nil
 }

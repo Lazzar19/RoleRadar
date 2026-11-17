@@ -15,7 +15,7 @@ import (
 	"github.com/Lazzar19/ScoutAI/internal/store"
 )
 
-func runMailbox(ctx context.Context, db PollStore, mail source.MailOpener, logger *slog.Logger, src domain.JobSource) error {
+func runMailbox(ctx context.Context, db PollStore, mail source.MailOpener, logger *slog.Logger, taskID string, src domain.JobSource) error {
 	if mail == nil {
 		return fmt.Errorf("source %s has no mailbox", src.Name)
 	}
@@ -26,6 +26,7 @@ func runMailbox(ctx context.Context, db PollStore, mail source.MailOpener, logge
 	}
 	box, err := mail.Open(ctx, src.Config.SecretEnv)
 	if err != nil {
+		logger.Error("source run failed", "run_id", runID, "task_id", taskID, "source", src.Name, "err", err)
 		_ = db.FinishSourceRun(ctx, runID, "failed", 0, 0, err.Error(), time.Now().UTC())
 		_ = db.MarkSourceChecked(ctx, src.ID, time.Now().UTC())
 		return err
@@ -33,6 +34,7 @@ func runMailbox(ctx context.Context, db PollStore, mail source.MailOpener, logge
 	discovered, stored, note, ingestErr := ingestMailbox(ctx, db, src, box, logger)
 	finished := time.Now().UTC()
 	if ingestErr != nil {
+		logger.Error("source run failed", "run_id", runID, "task_id", taskID, "source", src.Name, "err", ingestErr)
 		_ = db.FinishSourceRun(ctx, runID, "failed", discovered, stored, ingestErr.Error(), finished)
 		_ = db.MarkSourceChecked(ctx, src.ID, finished)
 		return ingestErr
@@ -43,7 +45,7 @@ func runMailbox(ctx context.Context, db PollStore, mail source.MailOpener, logge
 	if err := db.MarkSourceChecked(ctx, src.ID, finished); err != nil {
 		return err
 	}
-	logger.Info("mailbox messages stored", "source", src.Name, "stored", stored)
+	logger.Info("mailbox messages stored", "run_id", runID, "task_id", taskID, "source", src.Name, "discovered", discovered, "stored", stored)
 	return nil
 }
 

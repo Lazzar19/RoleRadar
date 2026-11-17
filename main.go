@@ -13,6 +13,7 @@ import (
 
 	"github.com/Lazzar19/ScoutAI/internal/config"
 	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/ScoutAI/internal/extract"
 	"github.com/Lazzar19/ScoutAI/internal/health"
 	"github.com/Lazzar19/ScoutAI/internal/match"
 	"github.com/Lazzar19/ScoutAI/internal/notify"
@@ -87,6 +88,23 @@ func run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		},
 		Threshold: cfg.MatchThreshold,
 	}
+	scoring := pipeline.Scoring{
+		Rules:    rules,
+		Model:    cfg.LLMModel,
+		MinChars: cfg.ExtractMinChars,
+		MaxChars: cfg.ExtractMaxChars,
+	}
+	if cfg.LLMAPIKey != "" {
+		scoring.Extractor = extract.Client{
+			BaseURL:     cfg.LLMAPIBase,
+			APIKey:      cfg.LLMAPIKey,
+			Model:       cfg.LLMModel,
+			MaxChars:    cfg.ExtractMaxChars,
+			DailyTokens: cfg.ExtractDailyTokens,
+			Budget:      pool,
+			Logger:      logger,
+		}
+	}
 	logger.Info("starting queue workers", "count", cfg.WorkerCount)
 	for i := range cfg.WorkerCount {
 		wg.Add(1)
@@ -95,7 +113,7 @@ func run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 			id := worker.ID(i)
 			err := worker.Worker{
 				Queue:       pool,
-				Handler:     pipeline.Handler(pool, boards, source.EnvMailboxes{}, rules, cfg.NotifyRecipient, logger),
+				Handler:     pipeline.Handler(pool, boards, source.EnvMailboxes{}, scoring, cfg.NotifyRecipient, logger),
 				ID:          id,
 				TaskTimeout: cfg.TaskTimeout,
 				MaxAttempts: cfg.TaskMaxAttempts,
