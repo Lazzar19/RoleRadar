@@ -164,5 +164,6 @@ const helpText = `ScoutAI watches for internships and sends a preview or a score
 /profile shows the active profile.
 /status shows the queue.
 /sources lists boards.
+/add <url> saves a LinkedIn or configured board link and asks for the text.
 Reply to a preview with the posting text to score it.
 Use the buttons on a message to save feedback.`

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Lazzar19/ScoutAI/internal/domain"
 	"github.com/Lazzar19/ScoutAI/internal/pipeline"
+	"github.com/Lazzar19/ScoutAI/internal/source"
 	"github.com/Lazzar19/ScoutAI/internal/store"
 )
 
@@ -103,10 +104,97 @@ func (b *Bot) command(ctx context.Context, message Incoming) error {
 	case "/feedback":
 		return b.feedbackCommand(ctx, message, fields[1:])
 	case "/add":
-		return b.reply(ctx, "Reply to a preview with the posting text. Adding a URL is not available yet.")
+		return b.add(ctx, fields[1:])
 	default:
 		return b.reply(ctx, "Unknown command. /help lists what I can do.")
 	}
+}
+
+func (b *Bot) add(ctx context.Context, args []string) error {
+	if len(args) != 1 {
+		return b.reply(ctx, "Send /add and one URL.")
+	}
+	sources, err := b.Store.ListSources(ctx)
+	if err != nil {
+		return err
+	}
+	original, err := source.AcceptURL(args[0], sources)
+	if err != nil {
+		switch {
+		case errors.Is(err, source.ErrHostNotAllowed):
+			return b.reply(ctx, "That host is not allowed. I did not open the URL.")
+		case errors.Is(err, source.ErrUserInfo):
+			return b.reply(ctx, "Send the URL without a username or password. I did not open it.")
+		default:
+			return b.reply(ctx, "Send /add and one http or https URL.")
+		}
+	}
+	canonical, err := pipeline.CanonicalURL(original)
+	if err != nil {
+		return b.reply(ctx, "Send /add and one http or https URL.")
+	}
+	src := domain.JobSource{
+		Name:    source.ManualSourceName,
+		Type:    domain.SourceManual,
+		Enabled: true,
+	}
+	if err := b.Store.UpsertSource(ctx, &src); err != nil {
+		return err
+	}
+	ref, err := b.Store.FindReferenceByCanonicalURL(ctx, src.ID, canonical)
+	if errors.Is(err, store.ErrNotFound) {
+		_, err = pipeline.Apply(ctx, b.Store, src, source.Snapshot{
+			Postings: []source.DiscoveredPosting{{
+				OriginalURL:  original,
+				CanonicalURL: canonical,
+				Kind:         domain.KindPost,
+				Completeness: domain.CompletenessPreview,
+				Title:        source.SubmittedTitle,
+			}},
+		}, time.Now().UTC())
+		if err != nil {
+			return err
+		}
+		ref, err = b.Store.FindReferenceByCanonicalURL(ctx, src.ID, canonical)
+	}
+	if err != nil {
+		return err
+	}
+	job, err := b.Store.GetJob(ctx, ref.JobID)
+	if err != nil {
+		return err
+	}
+	if job.Completeness == domain.CompletenessFull {
+		return b.reply(ctx, "That link already has posting text.")
+	}
+	note, err := b.Store.FindNotification(ctx, job.ID, b.UserID, domain.DecisionPreview)
+	if errors.Is(err, store.ErrNotFound) {
+		err = b.Store.InsertNotification(ctx, &domain.Notification{
+			JobID:     job.ID,
+			Recipient: b.UserID,
+			Type:      domain.DecisionPreview,
+			Channel:   domain.ChannelTelegram,
+			Status:    domain.DeliveryPending,
+		})
+		note.Status = domain.DeliveryPending
+	}
+	if err != nil && !errors.Is(err, store.ErrConflict) {
+		return err
+	}
+	if note.Status == domain.DeliverySent {
+		return b.reply(ctx, "That link is already saved. Reply to its preview with the posting text.")
+	}
+	if err := b.DeliverOnce(ctx); err != nil {
+		return err
+	}
+	note, err = b.Store.FindNotification(ctx, job.ID, b.UserID, domain.DecisionPreview)
+	if err != nil {
+		return err
+	}
+	if note.Status == domain.DeliverySent {
+		return nil
+	}
+	return b.reply(ctx, "Saved the link. I'll send the preview when Telegram answers.")
 }
 
 func (b *Bot) feedbackCommand(ctx context.Context, message Incoming, args []string) error {

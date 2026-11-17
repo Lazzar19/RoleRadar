@@ -27,6 +27,14 @@ type Store interface {
 	InsertFeedback(ctx context.Context, jobID, profileID, notificationID string, kind domain.FeedbackType) error
 	ListSources(ctx context.Context) ([]domain.JobSource, error)
 	NotifyStatus(ctx context.Context) (int, int, error)
+	UpsertSource(ctx context.Context, source *domain.JobSource) error
+	FindReferenceByExternalID(ctx context.Context, sourceID, externalID string) (domain.SourceReference, error)
+	FindReferenceByCanonicalURL(ctx context.Context, sourceID, canonicalURL string) (domain.SourceReference, error)
+	InsertJobWithReference(ctx context.Context, job *domain.Job, ref *domain.SourceReference) error
+	UpdateJobSnapshot(ctx context.Context, job domain.Job, ref domain.SourceReference) error
+	CloseMissingJobs(ctx context.Context, sourceID string, seenExternalIDs []string) (int, error)
+	FindNotification(ctx context.Context, jobID, recipient string, kind domain.DecisionKind) (domain.Notification, error)
+	InsertNotification(ctx context.Context, notification *domain.Notification) error
 }
 
 // Bot long-polls Telegram and sends pending notifications.

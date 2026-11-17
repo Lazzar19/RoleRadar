@@ -9,6 +9,7 @@ const (
 	SourceGreenhouse SourceType = "greenhouse"
 	SourceLever      SourceType = "lever"
 	SourceEmail      SourceType = "email"
+	SourceManual     SourceType = "manual"
 )
 
 // SourceConfig holds non-secret source settings.

@@ -21,6 +21,130 @@ import (
 	"github.com/Lazzar19/ScoutAI/internal/store"
 )
 
+func TestAddStoresAPreviewAndScoresTheReply(t *testing.T) {
+	pool := openNotifyPool(t)
+	ctx := context.Background()
+	userID, user := testUser(t)
+	profile := notifyProfile(userID)
+	if err := pool.InsertProfile(ctx, &profile); err != nil {
+		t.Fatalf("InsertProfile() error = %v", err)
+	}
+	transport := &rejectTransport{}
+	previous := http.DefaultTransport
+	http.DefaultTransport = transport
+	t.Cleanup(func() { http.DefaultTransport = previous })
+
+	sends, server := telegramServer(t, http.StatusOK)
+	defer server.Close()
+	bot := testBot(pool, userID, server)
+	rejected := "https://example.com/jobs/" + domain.NewID()
+	if err := bot.handle(ctx, command(user, "/add "+rejected)); err != nil {
+		t.Fatalf("rejected add error = %v", err)
+	}
+	if !hasText(*sends, "That host is not allowed") {
+		t.Fatalf("sends = %+v", *sends)
+	}
+
+	original := "https://www.linkedin.com/posts/example-" + domain.NewID() + "?utm_source=alert"
+	if err := bot.handle(ctx, command(user, "/add "+original)); err != nil {
+		t.Fatalf("add error = %v", err)
+	}
+	if transport.calls != 0 {
+		t.Fatalf("add made %d HTTP requests", transport.calls)
+	}
+	if !hasText(*sends, "PREVIEW — description not in the source") || !hasText(*sends, original) {
+		t.Fatalf("sends = %+v", *sends)
+	}
+	sources, err := pool.ListSources(ctx)
+	if err != nil {
+		t.Fatalf("ListSources() error = %v", err)
+	}
+	manual, ok := findSource(sources, source.ManualSourceName)
+	if !ok {
+		t.Fatal("manual source was not stored")
+	}
+	canonical, err := pipeline.CanonicalURL(original)
+	if err != nil {
+		t.Fatalf("CanonicalURL() error = %v", err)
+	}
+	ref, err := pool.FindReferenceByCanonicalURL(ctx, manual.ID, canonical)
+	if err != nil {
+		t.Fatalf("FindReferenceByCanonicalURL() error = %v", err)
+	}
+	if ref.OriginalURL != original {
+		t.Fatalf("original url = %s", ref.OriginalURL)
+	}
+	if _, err := pool.FindReferenceByCanonicalURL(ctx, manual.ID, rejected); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("rejected url was stored: %v", err)
+	}
+	job, err := pool.GetJob(ctx, ref.JobID)
+	if err != nil {
+		t.Fatalf("GetJob() error = %v", err)
+	}
+	if job.Kind != domain.KindPost || job.Completeness != domain.CompletenessPreview || job.Description != "" {
+		t.Fatalf("stored job = %+v", job)
+	}
+	if job.URL != canonical {
+		t.Fatalf("url = %s, want %s", job.URL, canonical)
+	}
+
+	preview, err := pool.FindNotification(ctx, job.ID, userID, domain.DecisionPreview)
+	if err != nil {
+		t.Fatalf("FindNotification() error = %v", err)
+	}
+	replyID, err := strconv.ParseInt(*preview.ExternalMessageID, 10, 64)
+	if err != nil {
+		t.Fatalf("message id = %v", preview.ExternalMessageID)
+	}
+	const pasted = "Backend Intern. Build services in Go and Linux."
+	if err := bot.handle(ctx, Update{Message: &Incoming{UserID: user, ChatID: user, Text: pasted, ReplyID: replyID}}); err != nil {
+		t.Fatalf("reply error = %v", err)
+	}
+	upgraded, err := pool.GetJob(ctx, job.ID)
+	if err != nil {
+		t.Fatalf("GetJob() error = %v", err)
+	}
+	if upgraded.Completeness != domain.CompletenessFull || upgraded.Description != pasted || upgraded.URL != job.URL {
+		t.Fatalf("upgraded job = %+v", upgraded)
+	}
+	ref, err = pool.FindReferenceByCanonicalURL(ctx, manual.ID, canonical)
+	if err != nil {
+		t.Fatalf("FindReferenceByCanonicalURL() error = %v", err)
+	}
+	if ref.OriginalURL != original {
+		t.Fatalf("original url after text = %s", ref.OriginalURL)
+	}
+
+	handle := pipeline.Handler(pool, source.Greenhouse{}, nil, match.DefaultRules(), userID, slog.New(slog.DiscardHandler))
+	if err := handle(ctx, matchTask(upgraded, profile.Version)); err != nil {
+		t.Fatalf("match error = %v", err)
+	}
+	if err := bot.DeliverOnce(ctx); err != nil {
+		t.Fatalf("DeliverOnce() error = %v", err)
+	}
+	outcome := match.Decide(upgraded, profile, match.DefaultRules())
+	if outcome.Overall == nil || !outcome.Notify {
+		t.Fatalf("decision = %+v", outcome)
+	}
+	if !hasText(*sends, "MATCH "+strconv.Itoa(*outcome.Overall)+"/100") || !hasText(*sends, original) {
+		t.Fatalf("sends = %+v", *sends)
+	}
+	if transport.calls != 0 {
+		t.Fatalf("scoring made %d HTTP requests", transport.calls)
+	}
+
+	if err := bot.handle(ctx, command(user, "/add "+original)); err != nil {
+		t.Fatalf("second add error = %v", err)
+	}
+	again, err := pool.GetJob(ctx, job.ID)
+	if err != nil {
+		t.Fatalf("GetJob() error = %v", err)
+	}
+	if again.ID != job.ID || again.Description != pasted || again.URL != job.URL {
+		t.Fatalf("second add changed the job: %+v", again)
+	}
+}
+
 func TestPreviewReplyBecomesAnEvaluatedMessage(t *testing.T) {
 	pool := openNotifyPool(t)
 	ctx := context.Background()
@@ -343,6 +467,28 @@ func insertNotifyJob(t *testing.T, ctx context.Context, pool *store.Pool, job do
 func matchTask(job domain.Job, version int) domain.Task {
 	hash := job.ContentHash
 	return domain.Task{Type: domain.TaskMatch, JobID: &job.ID, ContentHash: &hash, ProfileVersion: &version}
+}
+
+func command(user int64, text string) Update {
+	return Update{Message: &Incoming{UserID: user, ChatID: user, Text: text}}
+}
+
+func findSource(sources []domain.JobSource, name string) (domain.JobSource, bool) {
+	for _, src := range sources {
+		if src.Name == name {
+			return src, true
+		}
+	}
+	return domain.JobSource{}, false
+}
+
+type rejectTransport struct {
+	calls int
+}
+
+func (t *rejectTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	t.calls++
+	return nil, http.ErrNotSupported
 }
 
 func sentText(t *testing.T, payload map[string]any) string {

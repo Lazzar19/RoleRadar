@@ -98,6 +98,11 @@ func cleanOptional(value *string) *string {
 	return &cleaned
 }
 
+// CanonicalURL strips tracking parameters and fragments from an absolute URL.
+func CanonicalURL(raw string) (string, error) {
+	return canonicalURL(raw)
+}
+
 func canonicalURL(raw string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
