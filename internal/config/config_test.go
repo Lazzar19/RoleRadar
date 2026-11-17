@@ -42,6 +42,11 @@ func TestLoadAllowsMissingFeatureSecrets(t *testing.T) {
 	t.Setenv("NOTIFY_PREVIEW", "")
 	t.Setenv("NOTIFY_EVALUATED", "")
 	t.Setenv("TELEGRAM_API_BASE", "")
+	t.Setenv("LLM_API_BASE", "")
+	t.Setenv("LLM_MODEL", "")
+	t.Setenv("EXTRACT_MIN_CHARS", "")
+	t.Setenv("EXTRACT_MAX_CHARS", "")
+	t.Setenv("EXTRACT_DAILY_TOKENS", "")
 
 	cfg, err := Load()
 	if err != nil {
@@ -79,6 +84,12 @@ func TestLoadAllowsMissingFeatureSecrets(t *testing.T) {
 	}
 	if !cfg.NotifyPreview || !cfg.NotifyEvaluated || cfg.TelegramAPIBase != "https://api.telegram.org" {
 		t.Fatalf("telegram = preview %v evaluated %v base %s", cfg.NotifyPreview, cfg.NotifyEvaluated, cfg.TelegramAPIBase)
+	}
+	if cfg.LLMAPIBase != defaultLLMBase || cfg.LLMModel != defaultLLMModel {
+		t.Fatalf("llm = %s %s", cfg.LLMAPIBase, cfg.LLMModel)
+	}
+	if cfg.ExtractMinChars != defaultExtractMinChars || cfg.ExtractMaxChars != defaultExtractMaxChars || cfg.ExtractDailyTokens != defaultExtractDailyTokens {
+		t.Fatalf("extract = %d %d %d", cfg.ExtractMinChars, cfg.ExtractMaxChars, cfg.ExtractDailyTokens)
 	}
 }
 

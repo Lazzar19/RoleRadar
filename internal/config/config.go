@@ -12,23 +12,28 @@ import (
 )
 
 const (
-	defaultWorkerCount       = 1
-	defaultTaskTimeout       = 2 * time.Minute
-	defaultTaskMaxAttempts   = 5
-	defaultWorkerPoll        = 2 * time.Second
-	defaultTaskRetryBase     = 5 * time.Second
-	defaultGreenhouseEvery   = time.Hour
-	defaultGreenhouseJitter  = 10 * time.Minute
-	defaultGreenhouseBaseURL = "https://boards-api.greenhouse.io"
-	defaultMailboxEvery      = 5 * time.Minute
-	defaultMailboxJitter     = time.Minute
-	defaultMatchRole         = 30
-	defaultMatchSkills       = 30
-	defaultMatchExperience   = 20
-	defaultMatchLocation     = 10
-	defaultMatchCompany      = 10
-	defaultMatchThreshold    = 70
-	defaultNotifyRecipient   = "candidate"
+	defaultWorkerCount        = 1
+	defaultTaskTimeout        = 2 * time.Minute
+	defaultTaskMaxAttempts    = 5
+	defaultWorkerPoll         = 2 * time.Second
+	defaultTaskRetryBase      = 5 * time.Second
+	defaultGreenhouseEvery    = time.Hour
+	defaultGreenhouseJitter   = 10 * time.Minute
+	defaultGreenhouseBaseURL  = "https://boards-api.greenhouse.io"
+	defaultMailboxEvery       = 5 * time.Minute
+	defaultMailboxJitter      = time.Minute
+	defaultMatchRole          = 30
+	defaultMatchSkills        = 30
+	defaultMatchExperience    = 20
+	defaultMatchLocation      = 10
+	defaultMatchCompany       = 10
+	defaultMatchThreshold     = 70
+	defaultNotifyRecipient    = "candidate"
+	defaultLLMBase            = "https://api.openai.com/v1"
+	defaultLLMModel           = "gpt-4o-mini"
+	defaultExtractMinChars    = 80
+	defaultExtractMaxChars    = 12000
+	defaultExtractDailyTokens = 200000
 )
 
 // Config is the process configuration. Only DatabaseURL is required.
@@ -40,6 +45,11 @@ type Config struct {
 	TelegramToken         string
 	MailboxURL            string
 	LLMAPIKey             string
+	LLMAPIBase            string
+	LLMModel              string
+	ExtractMinChars       int
+	ExtractMaxChars       int
+	ExtractDailyTokens    int
 	WorkerCount           int
 	TaskTimeout           time.Duration
 	TaskMaxAttempts       int
@@ -178,6 +188,26 @@ func Load() (Config, error) {
 	if telegramBase == "" {
 		telegramBase = "https://api.telegram.org"
 	}
+	llmBase := strings.TrimRight(strings.TrimSpace(os.Getenv("LLM_API_BASE")), "/")
+	if llmBase == "" {
+		llmBase = defaultLLMBase
+	}
+	llmModel := strings.TrimSpace(os.Getenv("LLM_MODEL"))
+	if llmModel == "" {
+		llmModel = defaultLLMModel
+	}
+	extractMin, err := envPositiveInt("EXTRACT_MIN_CHARS", defaultExtractMinChars)
+	if err != nil {
+		return Config{}, err
+	}
+	extractMax, err := envPositiveInt("EXTRACT_MAX_CHARS", defaultExtractMaxChars)
+	if err != nil {
+		return Config{}, err
+	}
+	extractDaily, err := envNonNegativeInt("EXTRACT_DAILY_TOKENS", defaultExtractDailyTokens)
+	if err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		DatabaseURL:           databaseURL,
@@ -185,6 +215,11 @@ func Load() (Config, error) {
 		TelegramToken:         token,
 		MailboxURL:            strings.TrimSpace(os.Getenv("MAILBOX_URL")),
 		LLMAPIKey:             strings.TrimSpace(os.Getenv("LLM_API_KEY")),
+		LLMAPIBase:            llmBase,
+		LLMModel:              llmModel,
+		ExtractMinChars:       extractMin,
+		ExtractMaxChars:       extractMax,
+		ExtractDailyTokens:    extractDaily,
 		WorkerCount:           workerCount,
 		TaskTimeout:           taskTimeout,
 		TaskMaxAttempts:       maxAttempts,
