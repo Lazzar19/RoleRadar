@@ -88,7 +88,7 @@ func (s Scheduler) EnqueueDue(ctx context.Context) error {
 
 func (s Scheduler) cadence(src domain.JobSource) (time.Duration, time.Duration, bool) {
 	switch src.Type {
-	case domain.SourceGreenhouse, domain.SourceLever:
+	case domain.SourceGreenhouse, domain.SourceLever, domain.SourceAshby, domain.SourceSmartRecruiters:
 		return s.Interval, Jitter(src.ID, s.Jitter), true
 	case domain.SourceEmail:
 		if s.MailboxInterval <= 0 {

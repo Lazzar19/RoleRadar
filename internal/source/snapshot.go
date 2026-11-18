@@ -36,6 +36,7 @@ type DiscoveredPosting struct {
 	Language       *string
 	PostedAt       *time.Time
 	EmploymentType string
+	Experience     string
 }
 
 // ItemError is one posting the adapter could not read.

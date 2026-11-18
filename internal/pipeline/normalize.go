@@ -70,6 +70,7 @@ func normalize(posting source.DiscoveredPosting) (domain.Job, error) {
 		URL:            jobURL,
 		ApplyMethod:    domain.ApplyURL,
 		EmploymentType: strings.Join(strings.Fields(posting.EmploymentType), " "),
+		Experience:     strings.Join(strings.Fields(posting.Experience), " "),
 		PostedAt:       posting.PostedAt,
 		Status:         domain.JobOpen,
 	}
@@ -152,6 +153,7 @@ func contentHash(job domain.Job) (string, error) {
 		Description    string         `json:"description"`
 		Language       string         `json:"language"`
 		EmploymentType string         `json:"employment_type"`
+		Experience     string         `json:"experience"`
 		URL            string         `json:"url"`
 	}{
 		Title:          job.Title,
@@ -159,6 +161,7 @@ func contentHash(job domain.Job) (string, error) {
 		Description:    job.Description,
 		Language:       deref(job.Language),
 		EmploymentType: job.EmploymentType,
+		Experience:     job.Experience,
 		URL:            job.URL,
 	}
 	for _, location := range job.Locations {

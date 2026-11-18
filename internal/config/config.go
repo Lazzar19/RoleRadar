@@ -302,6 +302,12 @@ func parseSources(raw string) ([]ConfiguredSource, error) {
 		if kind == "lever" && strings.TrimSpace(row.Site) == "" {
 			return nil, fmt.Errorf("SOURCES lever source %s needs a site", name)
 		}
+		if kind == "ashby" && strings.TrimSpace(row.Site) == "" {
+			return nil, fmt.Errorf("SOURCES ashby source %s needs a site", name)
+		}
+		if kind == "smartrecruiters" && strings.TrimSpace(row.Site) == "" {
+			return nil, fmt.Errorf("SOURCES smartrecruiters source %s needs a site", name)
+		}
 		feedURL := strings.TrimSpace(row.FeedURL)
 		if kind == "career" {
 			if err := careerFeedURL(feedURL); err != nil {

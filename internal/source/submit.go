@@ -49,7 +49,7 @@ func AcceptURL(raw string, sources []domain.JobSource) (string, error) {
 
 func submissionHosts(sources []domain.JobSource) []string {
 	hosts := []string{"linkedin.com", "helloworld.rs"}
-	var greenhouse, lever bool
+	var greenhouse, lever, ashby, smart bool
 	for _, src := range sources {
 		if !src.Enabled {
 			continue
@@ -59,6 +59,10 @@ func submissionHosts(sources []domain.JobSource) []string {
 			greenhouse = true
 		case domain.SourceLever:
 			lever = true
+		case domain.SourceAshby:
+			ashby = true
+		case domain.SourceSmartRecruiters:
+			smart = true
 		}
 	}
 	if greenhouse {
@@ -66,6 +70,12 @@ func submissionHosts(sources []domain.JobSource) []string {
 	}
 	if lever {
 		hosts = append(hosts, "jobs.lever.co")
+	}
+	if ashby {
+		hosts = append(hosts, "jobs.ashbyhq.com")
+	}
+	if smart {
+		hosts = append(hosts, "jobs.smartrecruiters.com")
 	}
 	return hosts
 }

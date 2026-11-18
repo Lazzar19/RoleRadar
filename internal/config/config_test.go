@@ -232,6 +232,14 @@ func TestLoadParsesLeverAndCareerSources(t *testing.T) {
 	if _, err := Load(); err == nil {
 		t.Fatal("Load() error = nil, want an https feed error")
 	}
+	t.Setenv("SOURCES", `[{"name":"ashby-example","type":"ashby"}]`)
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil, want a missing ashby site error")
+	}
+	t.Setenv("SOURCES", `[{"name":"smart-example","type":"smartrecruiters"}]`)
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil, want a missing smartrecruiters site error")
+	}
 	t.Setenv("SOURCES", `[{"name":"lever-example","type":"lever","site":"acme"},{"name":"career-example","type":"career","feed_url":"https://careers.example/jobs.json"}]`)
 	cfg, err := Load()
 	if err != nil {

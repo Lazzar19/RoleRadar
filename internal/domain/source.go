@@ -6,11 +6,13 @@ import "time"
 type SourceType string
 
 const (
-	SourceGreenhouse SourceType = "greenhouse"
-	SourceLever      SourceType = "lever"
-	SourceCareer     SourceType = "career"
-	SourceEmail      SourceType = "email"
-	SourceManual     SourceType = "manual"
+	SourceGreenhouse      SourceType = "greenhouse"
+	SourceLever           SourceType = "lever"
+	SourceAshby           SourceType = "ashby"
+	SourceSmartRecruiters SourceType = "smartrecruiters"
+	SourceCareer          SourceType = "career"
+	SourceEmail           SourceType = "email"
+	SourceManual          SourceType = "manual"
 )
 
 // SourceConfig holds non-secret source settings.
