@@ -17,7 +17,7 @@ services:
       TELEGRAM_USER_ID: ${TELEGRAM_USER_ID:-}
       TELEGRAM_API_BASE: ${TELEGRAM_API_BASE:-}
       MAILBOX_URL: ${MAILBOX_URL:-}
-      SOURCES: ${SOURCES:-}
+      SOURCES: '[{"name":"datadog","type":"greenhouse","board_token":"datadog","enabled":true},{"name":"databricks","type":"greenhouse","board_token":"databricks","enabled":true},{"name":"cloudflare","type":"greenhouse","board_token":"cloudflare","enabled":true},{"name":"palantir","type":"lever","site":"palantir","enabled":true}]'
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_API_BASE: ${LLM_API_BASE:-}
       LLM_MODEL: ${LLM_MODEL:-}
@@ -26,6 +26,7 @@ services:
       EXTRACT_DAILY_TOKENS: ${EXTRACT_DAILY_TOKENS:-}
       NOTIFY_PREVIEW: ${NOTIFY_PREVIEW:-}
       NOTIFY_EVALUATED: ${NOTIFY_EVALUATED:-}
+      GREENHOUSE_INTERVAL: ${GREENHOUSE_INTERVAL:-}
     depends_on:
       postgres:
         condition: service_healthy
