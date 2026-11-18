@@ -74,7 +74,8 @@ func (g Greenhouse) Fetch(ctx context.Context, token string) (Snapshot, error) {
 		return Snapshot{}, fmt.Errorf("greenhouse: request board: %w", err)
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	// A board with descriptions can exceed 8MB. A truncated body is not valid JSON and must not be stored.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("greenhouse: read board: %w", err)
 	}
