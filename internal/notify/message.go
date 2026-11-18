@@ -3,8 +3,10 @@ package notify
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/ScoutAI/internal/match"
 )
 
 // PreviewText is the plain-text preview. It has no score.
@@ -15,6 +17,9 @@ func PreviewText(job domain.Job, sourceName, originalURL string) string {
 		job.Title,
 		"Company: " + companyLine(job),
 		"Location: " + locationLine(job.Locations),
+		"",
+		match.PostingSummary(job.Title, job.Description, job.EmploymentType, job.Experience),
+		"Posted: " + postedLine(job.PostedAt),
 		"",
 		"Open the link to read the posting.",
 		"Reply to this message with the text to score it.",
@@ -33,6 +38,9 @@ func EvaluatedText(job domain.Job, score int, sourceName, originalURL string) st
 		"Company: " + companyLine(job),
 		"Location: " + locationLine(job.Locations),
 		"",
+		match.PostingSummary(job.Title, job.Description, job.EmploymentType, job.Experience),
+		"Posted: " + postedLine(job.PostedAt),
+		"",
 		"Source: " + orUnknown(sourceName),
 		"URL: " + originalURL,
 	}, "\n")
@@ -50,6 +58,13 @@ func FeedbackButtons(notificationID string) [][]Button {
 			{Text: "Already applied", Data: "fb:already_applied:" + notificationID},
 		},
 	}
+}
+
+func postedLine(posted *time.Time) string {
+	if posted == nil || posted.IsZero() {
+		return "not stated"
+	}
+	return posted.UTC().Format("2006-01-02")
 }
 
 func companyLine(job domain.Job) string {
