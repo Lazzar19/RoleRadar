@@ -37,9 +37,9 @@ func TestDecideFactsScoresQuotedFacts(t *testing.T) {
 	assertScore(t, "role", outcome.Role, 30)
 	assertScore(t, "skills", outcome.Skills, 30)
 	assertScore(t, "experience", outcome.Experience, 20)
-	assertScore(t, "location", outcome.Location, 10)
+	assertScore(t, "location", outcome.Location, 5)
 	assertScore(t, "company", outcome.Company, 10)
-	if outcome.Overall == nil || *outcome.Overall != 100 || !outcome.Notify {
+	if outcome.Overall == nil || *outcome.Overall != 95 || !outcome.Notify {
 		t.Fatalf("overall = %v notify = %v", outcome.Overall, outcome.Notify)
 	}
 }

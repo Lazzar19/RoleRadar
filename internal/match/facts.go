@@ -38,10 +38,10 @@ func scoreRoleFacts(facts domain.Extraction, profile domain.CandidateProfile, we
 	if facts.InternshipShaped {
 		text += "\nintern"
 	}
-	if anyPhrase(text, profile.ExcludedRoles) {
+	if anyPhrase(text, profile.ExcludedRoles) || nonSoftwareTitle(text) {
 		return scoreValue(0)
 	}
-	if anyPhrase(text, profile.RoleSynonyms) || anyPhrase(text, profile.PreferredRoles) {
+	if anyPhrase(text, profile.PreferredRoles) || anyPhrase(facts.RoleCategory, softwareRoles) {
 		return scoreValue(weight)
 	}
 	return nil

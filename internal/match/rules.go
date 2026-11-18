@@ -86,8 +86,8 @@ func Decide(job domain.Job, profile domain.CandidateProfile, rules Rules) Outcom
 }
 
 func preview(job domain.Job, profile domain.CandidateProfile) Outcome {
-	titleMatch := anyPhrase(job.Title, profile.RoleSynonyms)
-	excludedRole := anyPhrase(job.Title, profile.ExcludedRoles)
+	titleMatch := softwareRole(job.Title, profile)
+	excludedRole := anyPhrase(job.Title, profile.ExcludedRoles) || nonSoftwareTitle(job.Title)
 	excludedCompany := job.Company != nil && listed(*job.Company, profile.ExcludedCompanies)
 	allowed, _ := locationAllowed(job, profile)
 	return Outcome{
@@ -97,14 +97,26 @@ func preview(job domain.Job, profile domain.CandidateProfile) Outcome {
 }
 
 func scoreRole(job domain.Job, profile domain.CandidateProfile, weight int) *int {
-	if anyPhrase(job.Title, profile.ExcludedRoles) {
+	if anyPhrase(job.Title, profile.ExcludedRoles) || nonSoftwareTitle(job.Title) {
 		return scoreValue(0)
 	}
-	text := job.Title + "\n" + job.Description
-	if anyPhrase(text, profile.RoleSynonyms) || anyPhrase(text, profile.PreferredRoles) {
+	if softwareRole(job.Title, profile) {
 		return scoreValue(weight)
 	}
 	return nil
+}
+
+// softwareRole is true when the title is a software role the profile asked for.
+// An internship synonym on its own is not enough, so "Executive Assistant Intern" stays out.
+func softwareRole(title string, profile domain.CandidateProfile) bool {
+	return anyPhrase(title, profile.PreferredRoles) || anyPhrase(title, softwareRoles)
+}
+
+func nonSoftwareTitle(title string) bool {
+	if softwareRole(title, domain.CandidateProfile{}) {
+		return false
+	}
+	return anyPhrase(title, nonSoftwareRoles)
 }
 
 func scoreSkills(job domain.Job, profile domain.CandidateProfile, weight int) *int {
@@ -139,14 +151,21 @@ func scoreExperience(job domain.Job, weight int) *int {
 }
 
 func scoreLocation(job domain.Job, profile domain.CandidateProfile, weight int) *int {
-	allowed, known := locationAllowed(job, profile)
+	rank, known := locationRank(job, profile)
 	if !known {
 		return nil
 	}
-	if allowed {
+	switch rank {
+	case locationSerbia, locationPlace:
 		return scoreValue(weight)
+	case locationRemote:
+		if weight < 2 {
+			return scoreValue(weight)
+		}
+		return scoreValue(weight / 2)
+	default:
+		return scoreValue(0)
 	}
-	return scoreValue(0)
 }
 
 func scoreCompany(job domain.Job, profile domain.CandidateProfile, weight int) *int {
@@ -162,27 +181,89 @@ func scoreCompany(job domain.Job, profile domain.CandidateProfile, weight int) *
 	return nil
 }
 
-func locationAllowed(job domain.Job, profile domain.CandidateProfile) (allowed bool, known bool) {
+const (
+	locationNone = iota
+	locationRemote
+	locationPlace
+	locationSerbia
+)
+
+// locationRank orders a known location. Serbia outranks a named preferred place, and both outrank remote.
+// Remote alone receives half of the location weight in scoreLocation.
+func locationRank(job domain.Job, profile domain.CandidateProfile) (int, bool) {
 	jobs := usableLocations(job.Locations)
 	preferred := usableLocations(profile.PreferredLocations)
 	if len(jobs) == 0 || len(preferred) == 0 {
-		return true, false
+		return locationNone, false
 	}
-	return locationsOverlap(jobs, preferred), true
+	jobText := locationText(jobs)
+	if prefersSerbia(preferred) && inSerbia(jobText) {
+		return locationSerbia, true
+	}
+	if overlapsNamed(jobText, preferred) {
+		return locationPlace, true
+	}
+	if overlapsRemote(jobText, jobs, preferred) {
+		return locationRemote, true
+	}
+	return locationNone, true
 }
 
-func locationsOverlap(jobs, preferred []domain.Location) bool {
-	for _, jobLoc := range jobs {
-		jobText := strings.Join(locationTokens(jobLoc), " ")
-		for _, want := range preferred {
-			for _, token := range locationTokens(want) {
-				if hasPhrase(jobText, token) {
-					return true
-				}
+func locationText(locations []domain.Location) string {
+	var parts []string
+	for _, location := range locations {
+		parts = append(parts, locationTokens(location)...)
+	}
+	return strings.Join(parts, " ")
+}
+
+func prefersSerbia(preferred []domain.Location) bool {
+	text := locationText(preferred)
+	return hasPhrase(text, "serbia") || hasPhrase(text, "srbija")
+}
+
+func inSerbia(jobText string) bool {
+	return anyPhrase(jobText, []string{"serbia", "srbija", "belgrade", "beograd", "novi sad", "nis", "kragujevac", "subotica"})
+}
+
+func overlapsNamed(jobText string, preferred []domain.Location) bool {
+	for _, location := range preferred {
+		for _, token := range locationTokens(location) {
+			if fold(token) == "remote" {
+				continue
+			}
+			if hasPhrase(jobText, token) {
+				return true
 			}
 		}
 	}
 	return false
+}
+
+func overlapsRemote(jobText string, jobs, preferred []domain.Location) bool {
+	remoteJob := hasPhrase(jobText, "remote")
+	for _, location := range jobs {
+		if location.Remote {
+			remoteJob = true
+		}
+	}
+	if !remoteJob {
+		return false
+	}
+	for _, location := range preferred {
+		if location.Remote || hasPhrase(locationText([]domain.Location{location}), "remote") {
+			return true
+		}
+	}
+	return false
+}
+
+func locationAllowed(job domain.Job, profile domain.CandidateProfile) (allowed bool, known bool) {
+	rank, known := locationRank(job, profile)
+	if !known {
+		return true, false
+	}
+	return rank != locationNone, true
 }
 
 func usableLocations(locations []domain.Location) []domain.Location {
@@ -304,6 +385,82 @@ var studentExclusions = []string{
 	"does not accept students",
 	"cannot be a student",
 	"must not be a student",
+}
+
+// softwareRoles are title phrases for software engineering work.
+// "developer" does not match "business development" because the phrase must end on a word boundary.
+var softwareRoles = []string{
+	"software engineer",
+	"software engineering",
+	"software developer",
+	"software development",
+	"software intern",
+	"swe",
+	"backend",
+	"back-end",
+	"back end",
+	"frontend",
+	"front-end",
+	"front end",
+	"full stack",
+	"fullstack",
+	"full-stack",
+	"developer",
+	"programmer",
+	"golang",
+	"rust",
+	"devops",
+	"site reliability",
+	"sre",
+	"data engineer",
+	"machine learning",
+	"ml engineer",
+	"ios",
+	"android",
+	"platform engineer",
+	"infrastructure engineer",
+	"security engineer",
+}
+
+// nonSoftwareRoles are titles outside software engineering.
+// A title that also matches softwareRoles stays eligible.
+var nonSoftwareRoles = []string{
+	"executive assistant",
+	"administrative assistant",
+	"personal assistant",
+	"assistant",
+	"receptionist",
+	"office manager",
+	"recruiter",
+	"talent acquisition",
+	"sourcer",
+	"sales",
+	"account executive",
+	"business development",
+	"account manager",
+	"marketing",
+	"brand",
+	"content writer",
+	"copywriter",
+	"customer success",
+	"customer support",
+	"customer service",
+	"support specialist",
+	"finance",
+	"accountant",
+	"accounting",
+	"controller",
+	"legal",
+	"counsel",
+	"attorney",
+	"paralegal",
+	"human resources",
+	"people partner",
+	"people operations",
+	"product manager",
+	"project manager",
+	"program manager",
+	"designer",
 }
 
 var internshipSignals = []string{

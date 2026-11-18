@@ -86,7 +86,7 @@ func TestMatchTaskStoresTheScoreAndSkipsWeakOrClosedJobs(t *testing.T) {
 		t.Fatalf("strong match error = %v", err)
 	}
 	scored := requireEvaluation(t, ctx, pool, strong, profile.Version)
-	if scored.Kind != domain.DecisionEvaluated || scored.OverallScore == nil || *scored.OverallScore != 85 {
+	if scored.Kind != domain.DecisionEvaluated || scored.OverallScore == nil || *scored.OverallScore != 80 {
 		t.Fatalf("evaluation = %+v", scored)
 	}
 	if _, err := pool.FindNotification(ctx, strong.ID, "candidate", domain.DecisionEvaluated); err != nil {
@@ -140,7 +140,7 @@ func TestMatchThresholdComesFromRules(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindEvaluationByKey() error = %v", err)
 	}
-	if stored.OverallScore == nil || *stored.OverallScore != 85 {
+	if stored.OverallScore == nil || *stored.OverallScore != 80 {
 		t.Fatalf("evaluation = %+v", stored)
 	}
 	if _, err := pool.FindNotification(ctx, job.ID, "candidate", domain.DecisionEvaluated); !errors.Is(err, store.ErrNotFound) {

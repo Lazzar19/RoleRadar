@@ -61,12 +61,53 @@ func TestSerbianSynonymMatchesTheTitle(t *testing.T) {
 	profile := studentProfile()
 	rules := DefaultRules()
 	latin := Decide(domain.Job{Completeness: domain.CompletenessPreview, Title: "Staž: Backend"}, profile, rules)
-	cyrillic := Decide(domain.Job{Completeness: domain.CompletenessPreview, Title: "Пракса за студенте"}, profile, rules)
-	if !latin.Notify || !cyrillic.Notify {
-		t.Fatalf("latin = %v cyrillic = %v", latin.Notify, cyrillic.Notify)
+	cyrillic := Decide(domain.Job{Completeness: domain.CompletenessPreview, Title: "Пракса: Backend"}, profile, rules)
+	generic := Decide(domain.Job{Completeness: domain.CompletenessPreview, Title: "Пракса за студенте"}, profile, rules)
+	if !latin.Notify || !cyrillic.Notify || generic.Notify {
+		t.Fatalf("latin = %v cyrillic = %v generic = %v", latin.Notify, cyrillic.Notify, generic.Notify)
 	}
 	requireNilScores(t, latin)
 	requireNilScores(t, cyrillic)
+	requireNilScores(t, generic)
+}
+
+func TestSoftwareTitlesOutrankAssistantAndSales(t *testing.T) {
+	profile := studentProfile()
+	rules := DefaultRules()
+	assistant := Decide(domain.Job{
+		Completeness: domain.CompletenessFull,
+		Title:        "Executive Assistant",
+		Locations:    []domain.Location{{Raw: "Belgrade"}},
+		Description:  "Internship. Support the office in Serbia.",
+	}, profile, rules)
+	sales := Decide(domain.Job{
+		Completeness: domain.CompletenessFull,
+		Title:        "Sales Intern",
+		Locations:    []domain.Location{{Raw: "Belgrade"}},
+		Description:  "Internship for students.",
+	}, profile, rules)
+	goDev := Decide(domain.Job{
+		Completeness: domain.CompletenessFull,
+		Title:        "Go Developer",
+		Locations:    []domain.Location{{Raw: "Remote", Remote: true}},
+		Description:  "Build services.",
+	}, profile, rules)
+	rust := Decide(domain.Job{
+		Completeness: domain.CompletenessFull,
+		Title:        "Rust Developer Intern",
+		Locations:    []domain.Location{{Raw: "Belgrade"}},
+		Description:  "Students are welcome.",
+	}, profile, rules)
+	if assistant.Notify || sales.Notify {
+		t.Fatalf("assistant notify = %v sales notify = %v", assistant.Notify, sales.Notify)
+	}
+	requireInt(t, "assistant role", assistant.Role, 0)
+	requireInt(t, "sales role", sales.Role, 0)
+	if !goDev.Notify || !rust.Notify {
+		t.Fatalf("go notify = %v rust notify = %v", goDev.Notify, rust.Notify)
+	}
+	requireInt(t, "go role", goDev.Role, 30)
+	requireInt(t, "rust role", rust.Role, 30)
 }
 
 func TestFullDescriptionReceivesARuleScore(t *testing.T) {
@@ -84,9 +125,31 @@ func TestFullDescriptionReceivesARuleScore(t *testing.T) {
 	requireInt(t, "role", outcome.Role, 30)
 	requireInt(t, "skills", outcome.Skills, 15)
 	requireInt(t, "experience", outcome.Experience, 20)
-	requireInt(t, "location", outcome.Location, 10)
+	requireInt(t, "location", outcome.Location, 5)
 	requireInt(t, "company", outcome.Company, 10)
-	requireInt(t, "overall", outcome.Overall, 85)
+	requireInt(t, "overall", outcome.Overall, 80)
+}
+
+func TestSerbiaOutranksRemote(t *testing.T) {
+	profile := studentProfile()
+	rules := DefaultRules()
+	base := domain.Job{
+		Completeness: domain.CompletenessFull,
+		Title:        "Backend Intern",
+		Company:      strPtr("Example"),
+		Description:  "Build services in Go.",
+	}
+	remoteJob := base
+	remoteJob.Locations = []domain.Location{{Raw: "Remote", Remote: true}}
+	serbiaJob := base
+	serbiaJob.Locations = []domain.Location{{Raw: "Belgrade"}}
+	remote := Decide(remoteJob, profile, rules)
+	serbia := Decide(serbiaJob, profile, rules)
+	requireInt(t, "remote location", remote.Location, 5)
+	requireInt(t, "serbia location", serbia.Location, 10)
+	if remote.Overall == nil || serbia.Overall == nil || *serbia.Overall <= *remote.Overall {
+		t.Fatalf("serbia = %v remote = %v", serbia.Overall, remote.Overall)
+	}
 }
 
 func TestUnknownFieldsDoNotZeroACriterion(t *testing.T) {
