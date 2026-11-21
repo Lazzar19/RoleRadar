@@ -29,10 +29,27 @@ func TestPreviewTextHasNoScore(t *testing.T) {
 		"Posted: not stated",
 		"Reply to this message with the text to score it.",
 		"Source: LinkedIn alerts",
-		"URL: https://www.linkedin.com/jobs/view/1?utm_source=alert",
+		`<a href="https://www.linkedin.com/jobs/view/1?utm_source=alert">Go_Intern *_*[v1]*</a>`,
+		`<a href="https://www.linkedin.com/jobs/view/1?utm_source=alert">Open posting</a>`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("preview missing %q\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "URL:") {
+		t.Fatalf("preview showed the raw URL:\n%s", text)
+	}
+}
+
+func TestPostingLinkEscapesTitleAndQuery(t *testing.T) {
+	text := EvaluatedText(domain.Job{Title: "Go <intern>"}, 70, "A & B", "https://boards.example/jobs/1?a=1&b=2")
+	for _, want := range []string{
+		`<a href="https://boards.example/jobs/1?a=1&amp;b=2">Go &lt;intern&gt;</a>`,
+		"Source: A &amp; B",
+		`<a href="https://boards.example/jobs/1?a=1&amp;b=2">Open posting</a>`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("evaluated text missing %q\n%s", want, text)
 		}
 	}
 }
@@ -45,7 +62,15 @@ func TestEvaluatedTextShowsTheRuleScore(t *testing.T) {
 		EmploymentType: "Intern",
 		PostedAt:       &posted,
 	}, 84, "Greenhouse", "https://boards.example/jobs/1")
-	for _, want := range []string{"MATCH 84/100", "Backend Intern", "Languages: Go", "Technologies: Kubernetes, Linux", "Employment: Intern", "Posted: 2026-11-18"} {
+	for _, want := range []string{
+		"MATCH 84/100",
+		`<a href="https://boards.example/jobs/1">Backend Intern</a>`,
+		"Languages: Go",
+		"Technologies: Kubernetes, Linux",
+		"Employment: Intern",
+		"Posted: 2026-11-18",
+		`<a href="https://boards.example/jobs/1">Open posting</a>`,
+	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("evaluated text missing %q\n%s", want, text)
 		}

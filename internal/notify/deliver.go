@@ -91,7 +91,7 @@ func (b *Bot) deliver(ctx context.Context, notification domain.Notification) err
 	if err != nil {
 		return err
 	}
-	messageID, err := b.Client.Send(ctx, notification.Recipient, text, FeedbackButtons(notification.ID))
+	messageID, err := b.Client.Send(ctx, notification.Recipient, text, FeedbackButtons(notification.ID), true)
 	if err != nil {
 		return b.afterSendError(ctx, notification.ID, err)
 	}

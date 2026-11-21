@@ -364,7 +364,7 @@ func parseFeedback(data string) (domain.FeedbackType, string, bool) {
 }
 
 func (b *Bot) reply(ctx context.Context, text string) error {
-	_, err := b.Client.Send(ctx, b.UserID, text, nil)
+	_, err := b.Client.Send(ctx, b.UserID, text, nil, false)
 	if err != nil {
 		b.Logger.Warn("telegram reply failed", "err", err)
 	}

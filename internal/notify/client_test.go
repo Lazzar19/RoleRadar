@@ -29,6 +29,7 @@ func TestSendUsesPlainTextAndButtons(t *testing.T) {
 		"42",
 		"Go_Intern *_*[v1]*",
 		FeedbackButtons("note-1"),
+		false,
 	)
 	if err != nil {
 		t.Fatalf("Send() error = %v", err)
@@ -46,5 +47,19 @@ func TestSendUsesPlainTextAndButtons(t *testing.T) {
 	keyboard, _ := markup["inline_keyboard"].([]any)
 	if len(keyboard) != 2 {
 		t.Fatalf("keyboard = %+v", markup)
+	}
+
+	_, err = (Client{Token: "test-token", BaseURL: server.URL, HTTP: server.Client()}).Send(
+		context.Background(),
+		"42",
+		`<a href="https://boards.example/jobs/1">Open posting</a>`,
+		nil,
+		true,
+	)
+	if err != nil {
+		t.Fatalf("Send() html error = %v", err)
+	}
+	if got["parse_mode"] != "HTML" || got["disable_web_page_preview"] != true {
+		t.Fatalf("html payload = %+v", got)
 	}
 }

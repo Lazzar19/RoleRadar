@@ -2,6 +2,8 @@ package notify
 
 import (
 	"fmt"
+	"html"
+	"net/url"
 	"strings"
 	"time"
 
@@ -9,41 +11,66 @@ import (
 	"github.com/Lazzar19/ScoutAI/internal/match"
 )
 
-// PreviewText is the plain-text preview. It has no score.
+// PreviewText is the HTML preview. It has no score.
 func PreviewText(job domain.Job, sourceName, originalURL string) string {
 	return strings.Join([]string{
 		"PREVIEW — description not in the source",
 		"",
-		job.Title,
-		"Company: " + companyLine(job),
-		"Location: " + locationLine(job.Locations),
+		linkedTitle(job.Title, originalURL),
+		"Company: " + html.EscapeString(companyLine(job)),
+		"Location: " + html.EscapeString(locationLine(job.Locations)),
 		"",
-		match.PostingSummary(job.Title, job.Description, job.EmploymentType, job.Experience),
+		html.EscapeString(match.PostingSummary(job.Title, job.Description, job.EmploymentType, job.Experience)),
 		"Posted: " + postedLine(job.PostedAt),
 		"",
 		"Open the link to read the posting.",
 		"Reply to this message with the text to score it.",
 		"",
-		"Source: " + orUnknown(sourceName),
-		"URL: " + originalURL,
+		"Source: " + html.EscapeString(orUnknown(sourceName)),
+		postingLink(originalURL),
 	}, "\n")
 }
 
-// EvaluatedText is the plain-text scored message. The number is the rule score.
+// EvaluatedText is the HTML scored message. The number is the rule score.
 func EvaluatedText(job domain.Job, score int, sourceName, originalURL string) string {
 	return strings.Join([]string{
 		fmt.Sprintf("MATCH %d/100", score),
 		"",
-		job.Title,
-		"Company: " + companyLine(job),
-		"Location: " + locationLine(job.Locations),
+		linkedTitle(job.Title, originalURL),
+		"Company: " + html.EscapeString(companyLine(job)),
+		"Location: " + html.EscapeString(locationLine(job.Locations)),
 		"",
-		match.PostingSummary(job.Title, job.Description, job.EmploymentType, job.Experience),
+		html.EscapeString(match.PostingSummary(job.Title, job.Description, job.EmploymentType, job.Experience)),
 		"Posted: " + postedLine(job.PostedAt),
 		"",
-		"Source: " + orUnknown(sourceName),
-		"URL: " + originalURL,
+		"Source: " + html.EscapeString(orUnknown(sourceName)),
+		postingLink(originalURL),
 	}, "\n")
+}
+
+func linkedTitle(title, rawURL string) string {
+	title = html.EscapeString(strings.TrimSpace(title))
+	href, ok := postingHref(rawURL)
+	if !ok {
+		return title
+	}
+	return `<a href="` + href + `">` + title + `</a>`
+}
+
+func postingLink(rawURL string) string {
+	href, ok := postingHref(rawURL)
+	if !ok {
+		return "Open posting: unavailable"
+	}
+	return `<a href="` + href + `">Open posting</a>`
+}
+
+func postingHref(rawURL string) (string, bool) {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.User != nil {
+		return "", false
+	}
+	return html.EscapeString(parsed.String()), true
 }
 
 // FeedbackButtons are the four choices stored as feedback. They do not change weights.

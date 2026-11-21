@@ -19,7 +19,7 @@ type Button struct {
 
 // API is the Telegram bot methods this process uses.
 type API interface {
-	Send(ctx context.Context, chatID, text string, buttons [][]Button) (string, error)
+	Send(ctx context.Context, chatID, text string, buttons [][]Button, html bool) (string, error)
 	Answer(ctx context.Context, callbackID, text string) error
 	Updates(ctx context.Context, offset int64) ([]Update, error)
 }
@@ -56,11 +56,16 @@ type Client struct {
 	HTTP    *http.Client
 }
 
-// Send posts a plain-text message. Parse mode is left unset so titles keep their punctuation.
-func (c Client) Send(ctx context.Context, chatID, text string, buttons [][]Button) (string, error) {
+// Send posts one message. html uses Telegram HTML so a posting can be a link.
+// Other messages stay plain text, because command help contains angle brackets.
+func (c Client) Send(ctx context.Context, chatID, text string, buttons [][]Button, html bool) (string, error) {
 	payload := map[string]any{
 		"chat_id": chatID,
 		"text":    text,
+	}
+	if html {
+		payload["parse_mode"] = "HTML"
+		payload["disable_web_page_preview"] = true
 	}
 	if len(buttons) > 0 {
 		rows := make([][]map[string]string, len(buttons))
