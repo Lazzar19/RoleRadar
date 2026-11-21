@@ -123,12 +123,27 @@ func runMatch(ctx context.Context, db TaskStore, scoring Scoring, recipient stri
 		if recipient == "" {
 			recipient = "candidate"
 		}
-		notification = &domain.Notification{
-			JobID:     job.ID,
-			Recipient: recipient,
-			Type:      outcome.Kind,
-			Channel:   domain.ChannelTelegram,
-			Status:    domain.DeliveryPending,
+		same, err := db.ListSameRoleNotifications(ctx, job.ID, recipient)
+		if err != nil {
+			return err
+		}
+		keep, cancel := keepRoleNotification(job.Locations, same)
+		if !keep {
+			logger.Info("duplicate posting suppressed", "task_id", task.ID, "job_id", job.ID)
+		} else {
+			for _, id := range cancel {
+				if err := db.MarkNotificationFailed(ctx, id, "duplicate of a Serbia posting"); err != nil {
+					return err
+				}
+			}
+			notification = &domain.Notification{
+				JobID:        job.ID,
+				Recipient:    recipient,
+				Type:         outcome.Kind,
+				Channel:      domain.ChannelTelegram,
+				Status:       domain.DeliveryPending,
+				DeliverAfter: SendAfter(job.Locations, time.Now()),
+			}
 		}
 	}
 	if err := db.SaveDecision(ctx, &evaluation, notification); err != nil {

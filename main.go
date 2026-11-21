@@ -126,7 +126,7 @@ func run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 			id := worker.ID(i)
 			err := worker.Worker{
 				Queue:       pool,
-				Handler:     pipeline.Handler(pool, boards, source.Lever{BaseURL: cfg.LeverBaseURL}, source.Career{}, source.EnvMailboxes{}, scoring, cfg.NotifyRecipient, logger),
+				Handler:     pipeline.Handler(pool, boards, source.Lever{BaseURL: cfg.LeverBaseURL}, source.Career{}, source.Ashby{}, source.SmartRecruiters{}, source.EnvMailboxes{}, scoring, cfg.NotifyRecipient, logger),
 				ID:          id,
 				TaskTimeout: cfg.TaskTimeout,
 				MaxAttempts: cfg.TaskMaxAttempts,

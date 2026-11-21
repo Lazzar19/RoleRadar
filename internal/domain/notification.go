@@ -2,7 +2,6 @@ package domain
 
 import "time"
 
-
 type DeliveryStatus string
 
 const (
@@ -11,14 +10,11 @@ const (
 	DeliveryFailed  DeliveryStatus = "failed"
 )
 
-
 type NotificationChannel string
 
 const (
 	ChannelTelegram NotificationChannel = "telegram"
 )
-
-
 
 type Notification struct {
 	ID                string
@@ -30,5 +26,6 @@ type Notification struct {
 	Status            DeliveryStatus
 	ExternalMessageID *string
 	SentAt            *time.Time
+	DeliverAfter      *time.Time
 	Error             *string
 }

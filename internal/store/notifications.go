@@ -17,10 +17,10 @@ func (p *Pool) InsertNotification(ctx context.Context, notification *domain.Noti
 	_, err := p.pool.Exec(ctx, `
 		INSERT INTO notifications (
 			id, job_id, evaluation_id, recipient, notification_type, channel, status,
-			external_message_id, sent_at, error
+			external_message_id, sent_at, deliver_after, error
 		) VALUES (
 			$1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7,
-			$8, $9, $10
+			$8, $9, $10, $11
 		)`,
 		notification.ID,
 		notification.JobID,
@@ -31,6 +31,7 @@ func (p *Pool) InsertNotification(ctx context.Context, notification *domain.Noti
 		string(notification.Status),
 		notification.ExternalMessageID,
 		notification.SentAt,
+		notification.DeliverAfter,
 		notification.Error,
 	)
 	return mapWriteErr("insert notification", err)
@@ -40,7 +41,7 @@ func (p *Pool) InsertNotification(ctx context.Context, notification *domain.Noti
 func (p *Pool) GetNotification(ctx context.Context, id string) (domain.Notification, error) {
 	row := p.pool.QueryRow(ctx, `
 		SELECT id, job_id, evaluation_id, recipient, notification_type, channel, status,
-		       external_message_id, sent_at, error
+		       external_message_id, sent_at, deliver_after, error
 		FROM notifications
 		WHERE id = $1::uuid`, id)
 	notification, err := scanNotification(row)
@@ -54,7 +55,7 @@ func (p *Pool) GetNotification(ctx context.Context, id string) (domain.Notificat
 func (p *Pool) FindNotification(ctx context.Context, jobID, recipient string, kind domain.DecisionKind) (domain.Notification, error) {
 	row := p.pool.QueryRow(ctx, `
 		SELECT id, job_id, evaluation_id, recipient, notification_type, channel, status,
-		       external_message_id, sent_at, error
+		       external_message_id, sent_at, deliver_after, error
 		FROM notifications
 		WHERE job_id = $1::uuid AND recipient = $2 AND notification_type = $3`,
 		jobID, recipient, string(kind),
@@ -79,6 +80,7 @@ func scanNotification(row rowScanner) (domain.Notification, error) {
 		&status,
 		&notification.ExternalMessageID,
 		&notification.SentAt,
+		&notification.DeliverAfter,
 		&notification.Error,
 	)
 	if err != nil {
@@ -88,5 +90,6 @@ func scanNotification(row rowScanner) (domain.Notification, error) {
 	notification.Channel = domain.NotificationChannel(channel)
 	notification.Status = domain.DeliveryStatus(status)
 	notification.SentAt = utcPtr(notification.SentAt)
+	notification.DeliverAfter = utcPtr(notification.DeliverAfter)
 	return notification, nil
 }

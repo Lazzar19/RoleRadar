@@ -45,7 +45,7 @@ func TestLinkedInAlertStoresOneJobPerListing(t *testing.T) {
 	t.Cleanup(func() { http.DefaultTransport = previous })
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&logs, nil))
-	handle := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, staticOpener{box}, Scoring{Rules: match.DefaultRules()}, "candidate", logger)
+	handle := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, source.Ashby{}, source.SmartRecruiters{}, staticOpener{box}, Scoring{Rules: match.DefaultRules()}, "candidate", logger)
 	task := domain.Task{Type: domain.TaskPoll, SourceID: &src.ID}
 	if err := handle(ctx, task); err != nil {
 		t.Fatalf("poll error = %v", err)
@@ -133,7 +133,7 @@ func TestMailboxFetchErrorLeavesTheCursor(t *testing.T) {
 		t.Fatalf("UpsertSource() error = %v", err)
 	}
 	box := &replayMailbox{err: errors.New("mailbox unavailable")}
-	handle := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, staticOpener{box}, Scoring{Rules: match.DefaultRules()}, "candidate", slog.New(slog.DiscardHandler))
+	handle := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, source.Ashby{}, source.SmartRecruiters{}, staticOpener{box}, Scoring{Rules: match.DefaultRules()}, "candidate", slog.New(slog.DiscardHandler))
 	task := domain.Task{Type: domain.TaskPoll, SourceID: &src.ID}
 	if err := handle(ctx, task); err == nil {
 		t.Fatal("poll error = nil, want a fetch error")

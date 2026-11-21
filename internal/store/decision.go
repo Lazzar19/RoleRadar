@@ -91,10 +91,10 @@ func (p *Pool) SaveDecision(ctx context.Context, evaluation *domain.JobEvaluatio
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO notifications (
 				id, job_id, evaluation_id, recipient, notification_type, channel, status,
-				external_message_id, sent_at, error
+				external_message_id, sent_at, deliver_after, error
 			) VALUES (
 				$1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7,
-				$8, $9, $10
+				$8, $9, $10, $11
 			)
 			ON CONFLICT ON CONSTRAINT notifications_job_recipient_type_key DO NOTHING`,
 			notify.ID,
@@ -106,6 +106,7 @@ func (p *Pool) SaveDecision(ctx context.Context, evaluation *domain.JobEvaluatio
 			string(notify.Status),
 			notify.ExternalMessageID,
 			notify.SentAt,
+			notify.DeliverAfter,
 			notify.Error,
 		); err != nil {
 			return mapWriteErr("save decision notification", err)

@@ -217,6 +217,7 @@ func TestWorkflow(t *testing.T) {
 		source.Greenhouse{BaseURL: greenhouse.URL, Client: greenhouse.Client()},
 		source.Lever{BaseURL: lever.URL, Client: lever.Client(), PageSize: 2},
 		source.Career{Client: career.Client()},
+		source.Ashby{}, source.SmartRecruiters{},
 		workflowOpener{box},
 		pipeline.Scoring{Rules: match.DefaultRules(), Extractor: extractor, Model: "workflow-model", MinChars: 80, MaxChars: 12000},
 		userID,
@@ -299,21 +300,24 @@ func TestWorkflow(t *testing.T) {
 		t.Fatalf("preview = %+v", previewNote)
 	}
 
+	europeNote, err := pool.FindNotification(ctx, intern.ID, userID, domain.DecisionEvaluated)
+	if err != nil {
+		t.Fatalf("evaluated notification error = %v", err)
+	}
+	if europeNote.DeliverAfter == nil {
+		t.Fatal("a Europe match was queued for immediate delivery")
+	}
+	if previewNote.DeliverAfter == nil {
+		t.Fatal("a remote preview was queued for immediate delivery")
+	}
 	sends, telegram := telegramServer(t, http.StatusOK)
 	t.Cleanup(telegram.Close)
 	bot := testBot(pool, userID, telegram)
 	if err := bot.DeliverOnce(ctx); err != nil {
 		t.Fatalf("DeliverOnce() error = %v", err)
 	}
-	sent := len(*sends)
-	if !hasText(*sends, "MATCH "+strconv.Itoa(*scored.OverallScore)+"/100") || !hasText(*sends, "PREVIEW — description not in the source") {
-		t.Fatalf("sends = %+v", *sends)
-	}
-	if err := bot.DeliverOnce(ctx); err != nil {
-		t.Fatalf("second DeliverOnce() error = %v", err)
-	}
-	if len(*sends) != sent {
-		t.Fatalf("second delivery sent %d new messages", len(*sends)-sent)
+	if len(*sends) != 0 {
+		t.Fatalf("evening postings were sent immediately: %+v", *sends)
 	}
 
 	versionBefore := profile.Version
@@ -420,7 +424,7 @@ func TestWorkflow(t *testing.T) {
 	changed.Threshold = 101
 	second := pipeline.Handler(
 		pool,
-		source.Greenhouse{}, source.Lever{}, source.Career{}, nil,
+		source.Greenhouse{}, source.Lever{}, source.Career{}, source.Ashby{}, source.SmartRecruiters{}, nil,
 		pipeline.Scoring{Rules: changed, Extractor: extractor, Model: "workflow-model", MinChars: 80, MaxChars: 12000},
 		userID, slog.New(slog.DiscardHandler),
 	)
@@ -641,7 +645,7 @@ Subject: alert
 Date: Fri, 13 Nov 2026 09:01:00 +0000
 Content-Type: text/plain; charset=UTF-8
 
-Remote Intern
+Backend Intern
 Example
 Remote
 View job: https://www.linkedin.com/comm/jobs/view/555000111?trk=eml-test&utm_source=job_alert

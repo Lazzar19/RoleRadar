@@ -26,12 +26,13 @@ func (p *Pool) ListPendingNotifications(ctx context.Context, recipient string, t
 	}
 	rows, err := p.pool.Query(ctx, `
 		SELECT id, job_id, evaluation_id, recipient, notification_type, channel, status,
-		       external_message_id, sent_at, error
+		       external_message_id, sent_at, deliver_after, error
 		FROM notifications
 		WHERE status = 'pending'
 		  AND channel = 'telegram'
 		  AND recipient = $1
 		  AND notification_type = ANY($2)
+		  AND (deliver_after IS NULL OR deliver_after <= now())
 		ORDER BY created_at
 		LIMIT $3`,
 		recipient, names, limit,
@@ -89,7 +90,7 @@ func (p *Pool) MarkNotificationFailed(ctx context.Context, id, reason string) er
 func (p *Pool) FindNotificationByMessage(ctx context.Context, messageID string) (domain.Notification, error) {
 	row := p.pool.QueryRow(ctx, `
 		SELECT id, job_id, evaluation_id, recipient, notification_type, channel, status,
-		       external_message_id, sent_at, error
+		       external_message_id, sent_at, deliver_after, error
 		FROM notifications
 		WHERE external_message_id = $1
 		ORDER BY sent_at DESC NULLS LAST

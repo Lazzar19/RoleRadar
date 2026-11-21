@@ -149,7 +149,7 @@ func TestMatchThresholdComesFromRules(t *testing.T) {
 }
 
 func matchHandler(pool *store.Pool, rules match.Rules) func(context.Context, domain.Task) error {
-	return Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, nil, Scoring{Rules: rules}, "candidate", slog.New(slog.DiscardHandler))
+	return Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, source.Ashby{}, source.SmartRecruiters{}, nil, Scoring{Rules: rules}, "candidate", slog.New(slog.DiscardHandler))
 }
 
 type scriptedExtractor struct {
@@ -269,7 +269,7 @@ func TestExtractorScoresAFullPostingOnce(t *testing.T) {
 	})
 	facts := quotedFacts()
 	extractor := &scriptedExtractor{facts: facts}
-	handle := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, nil, Scoring{
+	handle := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, source.Ashby{}, source.SmartRecruiters{}, nil, Scoring{
 		Rules:     match.DefaultRules(),
 		Extractor: extractor,
 		Model:     "fixture-model",
@@ -314,7 +314,7 @@ func TestExtractorSkipsPreviewsAndShortPostings(t *testing.T) {
 		t.Fatalf("InsertProfile() error = %v", err)
 	}
 	extractor := &scriptedExtractor{}
-	handle := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, nil, Scoring{
+	handle := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, source.Ashby{}, source.SmartRecruiters{}, nil, Scoring{
 		Rules:     match.DefaultRules(),
 		Extractor: extractor,
 		Model:     "fixture-model",
@@ -366,7 +366,7 @@ func TestRejectedExtractionDoesNotNotify(t *testing.T) {
 		RoleCategory: "backend",
 		Evidence:     []domain.Evidence{{Claim: "role_category", Quote: "not-in-the-posting"}},
 	}}
-	handle := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, nil, Scoring{
+	handle := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, source.Ashby{}, source.SmartRecruiters{}, nil, Scoring{
 		Rules:     match.DefaultRules(),
 		Extractor: extractor,
 		Model:     "fixture-model",
@@ -404,7 +404,7 @@ func TestBudgetSpentScoresTheDescriptionWithRules(t *testing.T) {
 		Status:       domain.JobOpen,
 	})
 	extractor := &scriptedExtractor{err: extract.ErrBudget}
-	handle := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, nil, Scoring{
+	handle := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, source.Ashby{}, source.SmartRecruiters{}, nil, Scoring{
 		Rules:     match.DefaultRules(),
 		Extractor: extractor,
 		Model:     "fixture-model",
@@ -460,13 +460,13 @@ func TestWeightChangeKeepsTheOldEvaluationAndReusesFacts(t *testing.T) {
 	})
 	extractor := &scriptedExtractor{facts: quotedFacts()}
 	first := Scoring{Rules: match.DefaultRules(), Extractor: extractor, Model: "fixture-model", MinChars: 80}
-	if err := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, nil, first, "candidate", slog.New(slog.DiscardHandler))(ctx, matchTask(job, profile.Version)); err != nil {
+	if err := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, source.Ashby{}, source.SmartRecruiters{}, nil, first, "candidate", slog.New(slog.DiscardHandler))(ctx, matchTask(job, profile.Version)); err != nil {
 		t.Fatalf("first match error = %v", err)
 	}
 	changed := match.DefaultRules()
 	changed.Threshold = 101
 	second := Scoring{Rules: changed, Extractor: extractor, Model: "fixture-model", MinChars: 80}
-	if err := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, nil, second, "candidate", slog.New(slog.DiscardHandler))(ctx, matchTask(job, profile.Version)); err != nil {
+	if err := Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, source.Ashby{}, source.SmartRecruiters{}, nil, second, "candidate", slog.New(slog.DiscardHandler))(ctx, matchTask(job, profile.Version)); err != nil {
 		t.Fatalf("second match error = %v", err)
 	}
 	if extractor.calls != 1 {

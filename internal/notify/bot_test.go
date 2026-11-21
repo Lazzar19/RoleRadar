@@ -115,7 +115,7 @@ func TestAddStoresAPreviewAndScoresTheReply(t *testing.T) {
 		t.Fatalf("original url after text = %s", ref.OriginalURL)
 	}
 
-	handle := pipeline.Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, nil, pipeline.Scoring{Rules: match.DefaultRules()}, userID, slog.New(slog.DiscardHandler))
+	handle := pipeline.Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, source.Ashby{}, source.SmartRecruiters{}, nil, pipeline.Scoring{Rules: match.DefaultRules()}, userID, slog.New(slog.DiscardHandler))
 	if err := handle(ctx, matchTask(upgraded, profile.Version)); err != nil {
 		t.Fatalf("match error = %v", err)
 	}
@@ -150,6 +150,7 @@ func TestPreviewReplyBecomesAnEvaluatedMessage(t *testing.T) {
 	ctx := context.Background()
 	userID, user := testUser(t)
 	profile := notifyProfile(userID)
+	profile.PreferredLocations = append(profile.PreferredLocations, domain.Location{Raw: "Serbia"})
 	if err := pool.InsertProfile(ctx, &profile); err != nil {
 		t.Fatalf("InsertProfile() error = %v", err)
 	}
@@ -159,7 +160,7 @@ func TestPreviewReplyBecomesAnEvaluatedMessage(t *testing.T) {
 		Completeness: domain.CompletenessPreview,
 		Title:        "Backend Intern",
 		Company:      &company,
-		Locations:    []domain.Location{{Raw: "Europe", Remote: true}},
+		Locations:    []domain.Location{{Raw: "Belgrade, Serbia"}},
 		Status:       domain.JobOpen,
 		URL:          "https://boards.example/jobs/intern",
 	}, original)
@@ -167,7 +168,7 @@ func TestPreviewReplyBecomesAnEvaluatedMessage(t *testing.T) {
 	sends, server := telegramServer(t, http.StatusOK)
 	defer server.Close()
 	bot := testBot(pool, userID, server)
-	handle := pipeline.Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, nil, pipeline.Scoring{Rules: match.DefaultRules()}, userID, slog.New(slog.DiscardHandler))
+	handle := pipeline.Handler(pool, source.Greenhouse{}, source.Lever{}, source.Career{}, source.Ashby{}, source.SmartRecruiters{}, nil, pipeline.Scoring{Rules: match.DefaultRules()}, userID, slog.New(slog.DiscardHandler))
 	if err := handle(ctx, matchTask(job, profile.Version)); err != nil {
 		t.Fatalf("preview match error = %v", err)
 	}

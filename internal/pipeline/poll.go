@@ -10,6 +10,7 @@ import (
 	"github.com/Lazzar19/ScoutAI/internal/extract"
 	"github.com/Lazzar19/ScoutAI/internal/match"
 	"github.com/Lazzar19/ScoutAI/internal/source"
+	"github.com/Lazzar19/ScoutAI/internal/store"
 	"github.com/Lazzar19/ScoutAI/internal/worker"
 )
 
@@ -34,6 +35,8 @@ type TaskStore interface {
 	FindEvaluationByKey(ctx context.Context, jobID string, profileVersion int, contentHash, promptVersion, model string) (domain.JobEvaluation, error)
 	FindExtraction(ctx context.Context, jobID string, profileVersion int, contentHash, model string) ([]byte, error)
 	SaveDecision(ctx context.Context, evaluation *domain.JobEvaluation, notify *domain.Notification) error
+	ListSameRoleNotifications(ctx context.Context, jobID, recipient string) ([]store.SameRoleNotification, error)
+	MarkNotificationFailed(ctx context.Context, id, reason string) error
 }
 
 // Scoring is the rule configuration and the optional fact extractor.
@@ -48,14 +51,14 @@ type Scoring struct {
 
 // Handler polls Greenhouse boards and alert mail, and scores match tasks.
 // The fetch and the score run after the claim transaction has committed.
-func Handler(db TaskStore, boards source.Greenhouse, lever source.Lever, career source.Career, mail source.MailOpener, scoring Scoring, recipient string, logger *slog.Logger) worker.Handler {
+func Handler(db TaskStore, boards source.Greenhouse, lever source.Lever, career source.Career, ashby source.Ashby, smart source.SmartRecruiters, mail source.MailOpener, scoring Scoring, recipient string, logger *slog.Logger) worker.Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return func(ctx context.Context, task domain.Task) error {
 		switch task.Type {
 		case domain.TaskPoll:
-			return runPoll(ctx, db, boards, lever, career, mail, logger, task)
+			return runPoll(ctx, db, boards, lever, career, ashby, smart, mail, logger, task)
 		case domain.TaskMatch:
 			return runMatch(ctx, db, scoring, recipient, logger, task)
 		default:
@@ -64,7 +67,7 @@ func Handler(db TaskStore, boards source.Greenhouse, lever source.Lever, career 
 	}
 }
 
-func runPoll(ctx context.Context, db PollStore, boards source.Greenhouse, lever source.Lever, career source.Career, mail source.MailOpener, logger *slog.Logger, task domain.Task) error {
+func runPoll(ctx context.Context, db PollStore, boards source.Greenhouse, lever source.Lever, career source.Career, ashby source.Ashby, smart source.SmartRecruiters, mail source.MailOpener, logger *slog.Logger, task domain.Task) error {
 	if task.SourceID == nil || *task.SourceID == "" {
 		return fmt.Errorf("poll task %s has no source", task.ID)
 	}
@@ -88,6 +91,14 @@ func runPoll(ctx context.Context, db PollStore, boards source.Greenhouse, lever 
 	case domain.SourceCareer:
 		return runSnapshot(ctx, db, logger, task.ID, src, func(ctx context.Context) (source.Snapshot, error) {
 			return career.Fetch(ctx, src.Config.FeedURL)
+		})
+	case domain.SourceAshby:
+		return runSnapshot(ctx, db, logger, task.ID, src, func(ctx context.Context) (source.Snapshot, error) {
+			return ashby.Fetch(ctx, src.Config.Site)
+		})
+	case domain.SourceSmartRecruiters:
+		return runSnapshot(ctx, db, logger, task.ID, src, func(ctx context.Context) (source.Snapshot, error) {
+			return smart.Fetch(ctx, src.Config.Site)
 		})
 	case domain.SourceEmail:
 		return runMailbox(ctx, db, mail, logger, task.ID, src)

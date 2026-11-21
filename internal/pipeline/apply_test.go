@@ -48,7 +48,7 @@ func TestGreenhouseSnapshotStoresAndCloses(t *testing.T) {
 	}))
 	defer server.Close()
 	boards := source.Greenhouse{BaseURL: server.URL, Client: server.Client()}
-	handle := Handler(pool, boards, source.Lever{}, source.Career{}, nil, Scoring{Rules: match.DefaultRules()}, "candidate", slog.New(slog.DiscardHandler))
+	handle := Handler(pool, boards, source.Lever{}, source.Career{}, source.Ashby{}, source.SmartRecruiters{}, nil, Scoring{Rules: match.DefaultRules()}, "candidate", slog.New(slog.DiscardHandler))
 	task := domain.Task{Type: domain.TaskPoll, SourceID: &src.ID}
 
 	if err := handle(ctx, task); err != nil {

@@ -226,6 +226,15 @@ func inSerbia(jobText string) bool {
 	return anyPhrase(jobText, []string{"serbia", "srbija", "belgrade", "beograd", "novi sad", "nis", "kragujevac", "subotica"})
 }
 
+// LocatedInSerbia reports whether a posting names Serbia or a city in Serbia.
+func LocatedInSerbia(locations []domain.Location) bool {
+	usable := usableLocations(locations)
+	if len(usable) == 0 {
+		return false
+	}
+	return inSerbia(locationText(usable))
+}
+
 func overlapsNamed(jobText string, preferred []domain.Location) bool {
 	for _, location := range preferred {
 		for _, token := range locationTokens(location) {

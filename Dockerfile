@@ -8,7 +8,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/scout .
 
 FROM alpine:3.22
-RUN apk add --no-cache ca-certificates wget \
+RUN apk add --no-cache ca-certificates tzdata wget \
     && adduser -D -H -u 65532 app
 COPY --from=build /out/scout /usr/local/bin/scout
 USER app
