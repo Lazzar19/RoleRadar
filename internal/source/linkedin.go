@@ -269,12 +269,12 @@ func parseHTML(body string, posted *time.Time) ([]DiscoveredPosting, []string) {
 	var postings []DiscoveredPosting
 	var untitled []string
 	seen := map[string]bool{}
+	var missed []string
 	for i, item := range hits {
 		id := linkedInJobID(item.href)
 		if id == "" || seen[id] {
 			continue
 		}
-		seen[id] = true
 		limit := len(body)
 		if i+1 < len(hits) {
 			limit = hits[i+1].start
@@ -297,11 +297,20 @@ func parseHTML(body string, posted *time.Time) ([]DiscoveredPosting, []string) {
 			}
 		}
 		if title == "" {
-			untitled = append(untitled, id)
+			// A logo link often comes before the titled link for the same job.
+			missed = append(missed, id)
 			continue
 		}
+		seen[id] = true
 		company, location := splitCompanyLocation(follow, title)
 		postings = append(postings, postingFrom(id, title, company, location, item.href, posted))
+	}
+	for _, id := range missed {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		untitled = append(untitled, id)
 	}
 	return postings, untitled
 }

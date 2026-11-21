@@ -131,6 +131,39 @@ func TestParseLinkedInAlertReadsHTMLWhenPlainTextIsMissing(t *testing.T) {
 	}
 }
 
+func TestParseLinkedInAlertUsesTheTitleAfterTheLogoLink(t *testing.T) {
+	raw := []byte(strings.Join([]string{
+		"From: LinkedIn Job Alerts <jobalerts-noreply@linkedin.com>",
+		"Subject: 1 new job",
+		"Date: Fri, 13 Nov 2026 09:00:00 +0000",
+		"MIME-Version: 1.0",
+		"Content-Type: text/html; charset=UTF-8",
+		"",
+		"<html><body>",
+		`<a href="https://www.linkedin.com/comm/jobs/view/3988776655?trk=eml"><img alt="" src="logo.png"></a>`,
+		`<a href="https://www.linkedin.com/comm/jobs/view/3988776655?trk=eml">Backend Intern</a>`,
+		"<p>Acme · Belgrade, Serbia</p>",
+		"</body></html>",
+	}, "\n"))
+	postings, err := ParseLinkedInAlert(raw)
+	if err != nil {
+		t.Fatalf("ParseLinkedInAlert() error = %v", err)
+	}
+	if len(postings) != 1 {
+		t.Fatalf("listings = %d, want 1", len(postings))
+	}
+	got := postings[0]
+	if got.Title != "Backend Intern" {
+		t.Fatalf("title = %q", got.Title)
+	}
+	if got.Company == nil || *got.Company != "Acme" {
+		t.Fatalf("company = %v", got.Company)
+	}
+	if len(got.Locations) != 1 || got.Locations[0].Raw != "Belgrade, Serbia" {
+		t.Fatalf("location = %+v", got.Locations)
+	}
+}
+
 func TestParseLinkedInAlertRejectsAListingWithoutATitle(t *testing.T) {
 	raw := []byte(strings.Join([]string{
 		"From: LinkedIn Job Alerts <jobalerts-noreply@linkedin.com>",
