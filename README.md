@@ -1,6 +1,6 @@
-# ScoutAI
+# RoleRadar
 
-ScoutAI watches internship and job sources and sends a Telegram message when a posting fits the candidate profile. One process polls the sources, scores each job, and delivers notifications. PostgreSQL stores the jobs, the queue, and the notifications.
+RoleRadar watches internship and job sources and sends a Telegram message when a posting fits the candidate profile. One process polls the sources, scores each job, and delivers notifications. PostgreSQL stores the jobs, the queue, and the notifications.
 
 ## Architecture
 
