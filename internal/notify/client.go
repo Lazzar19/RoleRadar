@@ -136,7 +136,7 @@ func (c Client) call(ctx context.Context, method string, payload any, timeout ti
 		return fmt.Errorf("telegram: build %s: %w", method, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "ScoutAI")
+	req.Header.Set("User-Agent", "RoleRadar")
 	httpClient := c.HTTP
 	if httpClient == nil {
 		httpClient = http.DefaultClient

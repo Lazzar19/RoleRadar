@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
 )
 
 func TestTablesExist(t *testing.T) {

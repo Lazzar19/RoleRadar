@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
-	"github.com/Lazzar19/ScoutAI/internal/match"
-	"github.com/Lazzar19/ScoutAI/internal/pipeline"
-	"github.com/Lazzar19/ScoutAI/internal/source"
-	"github.com/Lazzar19/ScoutAI/internal/store"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/match"
+	"github.com/Lazzar19/RoleRadar/internal/pipeline"
+	"github.com/Lazzar19/RoleRadar/internal/source"
+	"github.com/Lazzar19/RoleRadar/internal/store"
 )
 
 func TestAddStoresAPreviewAndScoresTheReply(t *testing.T) {

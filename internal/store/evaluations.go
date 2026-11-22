@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
 )
 
 // InsertEvaluation stores one decision.

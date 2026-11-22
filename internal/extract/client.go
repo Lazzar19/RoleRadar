@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
-	"github.com/Lazzar19/ScoutAI/prompts"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
+	"github.com/Lazzar19/RoleRadar/prompts"
 )
 
 // TokenLedger records how many tokens one UTC day has already used.
@@ -92,7 +92,7 @@ func (c Client) Extract(ctx context.Context, job domain.Job) (Extraction, error)
 	req.Header.Set("Authorization", "Bearer "+c.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "ScoutAI")
+	req.Header.Set("User-Agent", "RoleRadar")
 
 	resp, err := c.httpClient().Do(req)
 	if err != nil {

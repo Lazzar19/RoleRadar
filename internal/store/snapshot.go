@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
 )
 
 // UpsertSource inserts a source or refreshes its non-secret configuration.

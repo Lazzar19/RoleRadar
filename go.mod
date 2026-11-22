@@ -1,4 +1,4 @@
-module github.com/Lazzar19/ScoutAI
+module github.com/Lazzar19/RoleRadar
 
 go 1.27.1
 

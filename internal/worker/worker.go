@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
-	"github.com/Lazzar19/ScoutAI/internal/store"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/store"
 )
 
 // Handler runs one claimed task. It is called only after the claim transaction has committed.

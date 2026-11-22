@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
 )
 
 // ListPendingNotifications returns outbox rows still waiting to be sent to one recipient.

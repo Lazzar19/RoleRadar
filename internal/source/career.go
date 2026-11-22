@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
 )
 
 const careerTimeout = 30 * time.Second
@@ -35,7 +35,7 @@ func (c Career) Fetch(ctx context.Context, feedURL string) (Snapshot, error) {
 		return Snapshot{}, fmt.Errorf("career: build request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "ScoutAI")
+	req.Header.Set("User-Agent", "RoleRadar")
 	resp, err := c.httpClient().Do(req)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("career: request feed: %w", err)

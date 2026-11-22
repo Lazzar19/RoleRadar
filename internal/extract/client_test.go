@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
 )
 
 type memLedger struct {

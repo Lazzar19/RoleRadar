@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
 )
 
 const (
@@ -63,7 +63,7 @@ func (g Greenhouse) Fetch(ctx context.Context, token string) (Snapshot, error) {
 		return Snapshot{}, fmt.Errorf("greenhouse: build request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "ScoutAI")
+	req.Header.Set("User-Agent", "RoleRadar")
 
 	client := g.Client
 	if client == nil {

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
 )
 
 // Store is the database access for delivery, replies, and feedback.

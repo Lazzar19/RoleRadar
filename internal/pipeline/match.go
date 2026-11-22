@@ -10,10 +10,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
-	"github.com/Lazzar19/ScoutAI/internal/extract"
-	"github.com/Lazzar19/ScoutAI/internal/match"
-	"github.com/Lazzar19/ScoutAI/internal/store"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/extract"
+	"github.com/Lazzar19/RoleRadar/internal/match"
+	"github.com/Lazzar19/RoleRadar/internal/store"
 )
 
 func runMatch(ctx context.Context, db TaskStore, scoring Scoring, recipient string, logger *slog.Logger, task domain.Task) error {

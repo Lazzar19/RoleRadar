@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
-	"github.com/Lazzar19/ScoutAI/internal/match"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/match"
 )
 
 // PreviewText is the HTML preview. It has no score.
@@ -201,7 +201,7 @@ func listOrNone(values []string) string {
 	return strings.Join(cleaned, ", ")
 }
 
-const helpText = `ScoutAI watches for internships and sends a preview or a scored match.
+const helpText = `RoleRadar watches for internships and sends a preview or a scored match.
 
 /profile shows the active profile.
 /status shows the queue.

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
 )
 
 const (
@@ -73,7 +73,7 @@ func (l Lever) page(ctx context.Context, site string, skip, limit int) ([]json.R
 		return nil, fmt.Errorf("lever: build request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "ScoutAI")
+	req.Header.Set("User-Agent", "RoleRadar")
 	resp, err := l.httpClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("lever: request site: %w", err)

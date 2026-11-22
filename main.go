@@ -15,17 +15,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/config"
-	"github.com/Lazzar19/ScoutAI/internal/domain"
-	"github.com/Lazzar19/ScoutAI/internal/extract"
-	"github.com/Lazzar19/ScoutAI/internal/health"
-	"github.com/Lazzar19/ScoutAI/internal/match"
-	"github.com/Lazzar19/ScoutAI/internal/notify"
-	"github.com/Lazzar19/ScoutAI/internal/pipeline"
-	"github.com/Lazzar19/ScoutAI/internal/schedule"
-	"github.com/Lazzar19/ScoutAI/internal/source"
-	"github.com/Lazzar19/ScoutAI/internal/store"
-	"github.com/Lazzar19/ScoutAI/internal/worker"
+	"github.com/Lazzar19/RoleRadar/internal/config"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/extract"
+	"github.com/Lazzar19/RoleRadar/internal/health"
+	"github.com/Lazzar19/RoleRadar/internal/match"
+	"github.com/Lazzar19/RoleRadar/internal/notify"
+	"github.com/Lazzar19/RoleRadar/internal/pipeline"
+	"github.com/Lazzar19/RoleRadar/internal/schedule"
+	"github.com/Lazzar19/RoleRadar/internal/source"
+	"github.com/Lazzar19/RoleRadar/internal/store"
+	"github.com/Lazzar19/RoleRadar/internal/worker"
 )
 
 func main() {

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
 )
 
 func TestSendAfterKeepsSerbiaImmediate(t *testing.T) {

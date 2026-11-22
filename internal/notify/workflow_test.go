@@ -17,14 +17,14 @@ import (
 
 	"log/slog"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
-	"github.com/Lazzar19/ScoutAI/internal/extract"
-	"github.com/Lazzar19/ScoutAI/internal/health"
-	"github.com/Lazzar19/ScoutAI/internal/match"
-	"github.com/Lazzar19/ScoutAI/internal/pipeline"
-	"github.com/Lazzar19/ScoutAI/internal/schedule"
-	"github.com/Lazzar19/ScoutAI/internal/source"
-	"github.com/Lazzar19/ScoutAI/internal/store"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/extract"
+	"github.com/Lazzar19/RoleRadar/internal/health"
+	"github.com/Lazzar19/RoleRadar/internal/match"
+	"github.com/Lazzar19/RoleRadar/internal/pipeline"
+	"github.com/Lazzar19/RoleRadar/internal/schedule"
+	"github.com/Lazzar19/RoleRadar/internal/source"
+	"github.com/Lazzar19/RoleRadar/internal/store"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -71,7 +71,7 @@ func TestWorkflow(t *testing.T) {
 	leverHits := 0
 	lever := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		leverHits++
-		if r.Header.Get("User-Agent") != "ScoutAI" {
+		if r.Header.Get("User-Agent") != "RoleRadar" {
 			t.Errorf("lever user agent = %q", r.Header.Get("User-Agent"))
 		}
 		w.Header().Set("Content-Type", "application/json")

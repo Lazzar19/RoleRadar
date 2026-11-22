@@ -1,95 +1,228 @@
 # RoleRadar
 
-RoleRadar watches internship and job sources and sends a Telegram message when a posting fits the candidate profile. One process polls the sources, scores each job, and delivers notifications. PostgreSQL stores the jobs, the queue, and the notifications.
+[![Go](https://img.shields.io/badge/Go-1.27.1-00ADD8?logo=go&logoColor=white)](go.mod)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CI](https://img.shields.io/badge/CI-GitHub_Actions-blue)](.github/workflows/ci.yml)
 
-## Architecture
+**Self-hosted job alerts that score postings against your profile and ping you on Telegram.**
 
-The process applies database migrations, then starts the scheduler, the queue workers, the Telegram long poll, and the health server. The scheduler only enqueues work. A worker claims one task, fetches a board or mailbox, or scores one job, and then commits the result. Run a single copy of this process. A second copy schedules the same boards twice.
+RoleRadar is a single Go process with PostgreSQL. It polls public job boards and optional mail feeds, scores each posting with configurable rules (and optional LLM fact extraction), and sends Telegram messages to one user. Status: **self-hosted**, **single-user**, **experimental** — built for personal use, not a managed SaaS.
 
-Greenhouse boards, Lever sites, career-page JSON feeds, and LinkedIn alert mail are polled on a timer. `/add` stores a link without opening it. A preview has no description and is not sent to a model. A full description is scored with rules. When `LLM_API_KEY` is set, a long description is sent to one OpenAI-compatible model first. The model returns quoted facts. The rules score those facts. The model does not send a notification.
+### Supported sources
 
-`GET /health` reports that the process is up. `GET /ready` pings PostgreSQL.
+| Mechanism | Types |
+| --- | --- |
+| Scheduled polling | `greenhouse`, `lever`, `ashby`, `smartrecruiters`, `career` (HTTPS JSON feed) |
+| LinkedIn job alert email | `email` (IMAP via `MAILBOX_URL`) |
+| Manual link entry | Telegram `/add` (stores URL without fetching; includes LinkedIn and sites without a public feed) |
 
-## Configure
+Some career sites have no public API or permitted automated feed. RoleRadar does not crawl them. Use `/add` and paste the posting text in a reply.
 
-The process reads configuration from the environment. `DATABASE_URL` is required. The other secrets stay empty until that feature is turned on.
+## Features
 
-| Variable | Required | Default |
-| --- | --- | --- |
-| `DATABASE_URL` | yes | |
-| `PORT` | no | `8080` |
-| `TELEGRAM_TOKEN` | only for Telegram | empty, bot stays off |
-| `TELEGRAM_USER_ID` | when the token is set | |
-| `MAILBOX_URL` | when an enabled email source names it in `secret_env` | empty |
-| `SOURCES` | no | empty JSON array |
-| `LEVER_API_BASE` | no | `https://api.lever.co` |
-| `CAREER_INTERVAL` | no | `6h` |
-| `CAREER_JITTER` | no | `30m` |
-| `LLM_API_KEY` | only for extraction | empty, rules score the description |
-| `LLM_API_BASE` | no | `https://api.openai.com/v1` |
-| `LLM_MODEL` | no | `gpt-4o-mini` |
-| `EXTRACT_MIN_CHARS` | no | `80` |
-| `EXTRACT_MAX_CHARS` | no | `12000` |
-| `EXTRACT_DAILY_TOKENS` | no | `200000` (`0` removes the daily cap) |
-| `POSTGRES_PASSWORD` | for Compose | `scout` on a local machine |
+| Feature | Benefit |
+| --- | --- |
+| Multi-source ingestion | One queue for Greenhouse, Lever, Ashby, SmartRecruiters, JSON feeds, and mail |
+| Candidate profile in Postgres | Versioned preferences drive scoring |
+| Rule-based matching | Works without `LLM_API_KEY`; weighted role, skills, experience, location, company |
+| Optional LLM extraction | OpenAI-compatible API returns quoted facts; rules still decide the score |
+| Daily token cap | `EXTRACT_DAILY_TOKENS` limits model spend per UTC day |
+| Telegram workflow | Previews for link-only jobs; scored messages with inline feedback |
+| Feedback labels | Interesting, not relevant, save for later, already applied — stored only, no auto-tuning |
+| Postgres task queue | Retries, lock recovery, single-process workers |
+| Compose backups | Daily `pg_dump` to a volume, 14-day retention |
 
-Put secrets in an untracked `.env` next to `compose.yaml`. Do not commit that file. `POSTGRES_PASSWORD=scout` is a local fallback. Set a different password before anyone else can reach the host.
+## How it works
 
-`SOURCES` is a JSON array. A Greenhouse source needs `board_token`. A Lever source needs `site`. A career source needs an `https` `feed_url` whose body is `{"jobs":[{"id","title","url","description","company","location","employment_type","posted_at"}]}`. The career poll requests that URL and does not follow links or read HTML. An email source needs `secret_env`, and that variable must be set while the source is enabled.
+1. Migrations run, then sources from `SOURCES` upsert into the database.
+2. The scheduler enqueues board and mailbox polls on configured intervals.
+3. Workers fetch postings and upsert jobs; full descriptions enqueue match tasks.
+4. Matching optionally extracts facts, then applies rule weights and `MATCH_THRESHOLD`.
+5. Notifications queue for Telegram; the bot long-polls and delivers to `TELEGRAM_USER_ID`.
+6. You reply with text on previews or tap feedback buttons; labels feed `go run . compare`.
 
-HelloWorld (`helloworld.rs`) has no documented public API or RSS feed, and the terms page does not grant a crawl. The agent does not fetch it. Send the posting URL with `/add`, then reply with the text. The same path is used for LinkedIn links.
+Details: [docs/architecture.md](docs/architecture.md).
 
-Greenhouse and Lever boards are polled about once an hour. A career feed is polled about every six hours. A failed or partial fetch does not close jobs.
+## Quick start
 
-## Weights
+### Prerequisites
 
-Feedback buttons store a choice. They do not change weights or the profile version. `interesting` and `not relevant` become the labeled set. Saved and already-applied choices stay out of that set.
+- Docker with Compose v2
+- A Telegram bot token ([@BotFather](https://t.me/BotFather))
+- Your numeric Telegram user id (e.g. from `@userinfobot`)
 
-Compare a weight change before you edit the environment:
+### Linux / macOS
+
+```sh
+git clone https://github.com/Lazzar19/RoleRadar.git
+cd RoleRadar
+cp .env.example .env
+```
+
+Edit `.env`: set `TELEGRAM_TOKEN`, `TELEGRAM_USER_ID`, and a non-default `POSTGRES_PASSWORD` if the host is shared.
+
+```sh
+docker compose up -d --build
+curl -fsS http://127.0.0.1:8080/health
+curl -fsS http://127.0.0.1:8080/ready
+docker compose logs -f app
+```
+
+Message your bot on Telegram, run `/help`, try `/add` with an allowed URL. Insert an active row in `candidate_profiles` before match notifications make sense (see [docs/operations.md](docs/operations.md#candidate-profile)).
+
+Stop:
+
+```sh
+docker compose stop
+```
+
+Teardown (keeps volumes):
+
+```sh
+docker compose down
+```
+
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/Lazzar19/RoleRadar.git
+cd RoleRadar
+Copy-Item .env.example .env
+```
+
+Edit `.env`, then:
+
+```powershell
+docker compose up -d --build
+curl.exe -fsS http://127.0.0.1:8080/ready
+```
+
+## Telegram setup
+
+1. Create a bot with BotFather; copy the token into `TELEGRAM_TOKEN`.
+2. Set `TELEGRAM_USER_ID` to your numeric id. Only that user and chat receive commands and notifications.
+3. Optional: set `TELEGRAM_API_BASE` if you use a Telegram API proxy (default `https://api.telegram.org`).
+
+### Commands
+
+| Command | Action |
+| --- | --- |
+| `/start`, `/help` | Short usage text |
+| `/profile` | Show active candidate profile |
+| `/status` | Open jobs, pending notifications, profile name |
+| `/sources` | List configured sources and last check time |
+| `/add <url>` | Save one allowed http(s) URL as a preview job (no HTTP fetch) |
+| `/feedback …` | Record feedback when replying to a notification message |
+
+Reply to a **preview** message with the full posting text to score it.
+
+### Buttons
+
+Interesting, Not relevant, Save for later, Already applied — each stores one feedback row.
+
+### Preview vs evaluated
+
+- **Preview** (`NOTIFY_PREVIEW`, default on): sent when the job has no full description (e.g. after `/add`). HTML body from `PreviewText` in `internal/notify/message.go`.
+- **Evaluated** (`NOTIFY_EVALUATED`, default on): sent when rules produce a score at or above `MATCH_THRESHOLD`.
+
+Example evaluated message (format only; not a live screenshot):
+
+```text
+MATCH 82/100
+
+<title as link>
+Company: …
+Location: …
+
+<posting summary>
+Posted: YYYY-MM-DD
+
+Source: …
+Open posting
+```
+
+<!-- Screenshot placeholder: add docs/images/telegram-notification.png when available -->
+
+Long polling is used; no webhook or TLS setup is required on your server.
+
+## Configuration
+
+Environment variables are listed in [.env.example](.env.example). Full tables and `SOURCES` schema: [docs/configuration.md](docs/configuration.md).
+
+| Group | Key variables |
+| --- | --- |
+| Database | `DATABASE_URL`, `POSTGRES_PASSWORD` (Compose) |
+| HTTP | `PORT` (default `8080`) |
+| Telegram | `TELEGRAM_TOKEN`, `TELEGRAM_USER_ID`, `TELEGRAM_API_BASE` |
+| Sources | `SOURCES`, `MAILBOX_URL`, `*_INTERVAL`, `*_JITTER`, API bases |
+| Workers | `WORKER_COUNT`, `TASK_TIMEOUT`, `TASK_MAX_ATTEMPTS`, … |
+| Matching | `MATCH_WEIGHT_*`, `MATCH_THRESHOLD` |
+| LLM | `LLM_API_KEY`, `LLM_API_BASE`, `LLM_MODEL`, `EXTRACT_*` |
+| Notifications | `NOTIFY_PREVIEW`, `NOTIFY_EVALUATED` |
+
+`.env` is gitignored; never commit secrets.
+
+## Sources
+
+Configure boards in `SOURCES` JSON. Polling intervals:
+
+| Types | Default interval |
+| --- | --- |
+| `greenhouse`, `lever`, `ashby`, `smartrecruiters` | 1h (+ jitter) |
+| `email` | 5m |
+| `career` | 6h |
+
+`/add` uses the internal `manual` source and is not polled. See [docs/configuration.md](docs/configuration.md#sources-json) for field requirements and a full JSON example.
+
+## Matching and weights
+
+Default weights (each criterion is 0–max, summed to 100 max): role 30, skills 30, experience 20, location 10, company 10. Default `MATCH_THRESHOLD` is **70**.
+
+Feedback does not change weights. To experiment:
 
 ```sh
 PROPOSED_MATCH_THRESHOLD=80 go run . compare
 ```
 
-The command prints how many labeled jobs the current rules and the proposed rules would notify. It does not write evaluations, profiles, or weights. Set `MATCH_WEIGHT_*` or `MATCH_THRESHOLD` and restart only after that report. A changed weight uses a new evaluation key. The previous evaluation row stays. Stored facts are scored again without another model call.
+The command prints how many labeled jobs current vs proposed rules would notify. It does not write to the database. After reviewing output, set `MATCH_*` env vars and restart.
 
-Editing a profile replaces that profile row and bumps its version. Previous evaluation rows stay in the table.
+## Operations
 
-## Run
+- Run **one** app instance per database.
+- Published ports: app `127.0.0.1:8080`, Postgres `127.0.0.1:5433`.
+- Default `POSTGRES_PASSWORD=scout` is for local use only.
 
-On a machine that stays up while the development computer is off:
+[docs/operations.md](docs/operations.md) · [docs/backup-and-recovery.md](docs/backup-and-recovery.md)
 
-```sh
-docker compose up -d --build
-```
+## Development and testing
 
-The application port is published on `127.0.0.1:8080` only. Telegram long polling does not need a public webhook or a TLS certificate. Check the process with:
+Go 1.27.1, `go test ./...`, `go vet ./...`, `gofmt`, Compose build — see [docs/development.md](docs/development.md).
 
-```sh
-curl -fsS http://127.0.0.1:8080/ready
-```
+## Troubleshooting
 
-Migrations run inside the process, with a database lock, before it accepts work. `depends_on` only waits until PostgreSQL accepts connections. It is not the migration lock.
+[docs/troubleshooting.md](docs/troubleshooting.md) — `/ready`, bot delivery, sources, mailbox secrets, queue locks.
 
-Logs go to stdout as JSON. A failed source run includes `run_id`, `task_id`, and `source`. A task that has used its attempts includes `task_id` and `type` at error level. A notification that cannot be delivered includes `notification_id`. The logs do not include mailbox URLs, message bodies, API keys, or posting text.
+## Privacy
 
-## Backups
+| Topic | Behavior |
+| --- | --- |
+| When the LLM runs | Only if `LLM_API_KEY` is set and description length ≥ `EXTRACT_MIN_CHARS` (and ≤ cap) |
+| What is sent | Title plus capped posting text; system prompt from `prompts/extract-posting-v1.md` — no profile or threshold |
+| Token cap | `EXTRACT_DAILY_TOKENS` per UTC day in Postgres; `0` disables the cap |
+| Stored data | Jobs, evaluations, optional extraction JSON, notifications, feedback, profiles, queue, raw mail metadata |
+| Mailbox | IMAP credentials from `MAILBOX_URL` or `secret_env`; message bodies processed for LinkedIn alerts |
+| Backups | Custom-format dumps include the same sensitive data as the database |
 
-The `backup` service writes one custom-format `pg_dump` per day into the `backups` volume and deletes dumps older than 14 days. A failed dump is removed and tried again five minutes later.
+## Project status
 
-Copy a dump off the host on a schedule you control. The volume survives a container restart. It does not survive deletion of the volume.
+| Implemented | Not implemented |
+| --- | --- |
+| Board and mail polling, `/add`, scoring, Telegram, feedback, compare CLI, Compose backups | Multi-user auth, web UI, profile editing in Telegram, automatic weight learning from feedback, Prometheus metrics |
 
-## Recover
+## Contributing
 
-Stop the app and the backup loop, restore one dump into the existing database, then start them again:
+[CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md)
 
-```sh
-docker compose cp backup:/backups/scout-TIMESTAMP.dump ./scout.dump
-docker compose stop app backup
-docker compose exec -T postgres pg_restore --clean --if-exists --no-owner -U scout -d scout < scout.dump
-docker compose start app backup
-```
+## License
 
-Replace `scout-TIMESTAMP.dump` with the file you want. `pg_restore` replaces objects inside the `scout` database. Queue rows that were locked by a stopped process are returned to the queue after the task timeout.
-
-Prometheus is not part of this setup.
+[MIT](LICENSE) — Copyright 2026 Lazar Nikolic

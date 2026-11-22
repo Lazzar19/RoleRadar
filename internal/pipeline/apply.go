@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
-	"github.com/Lazzar19/ScoutAI/internal/source"
-	"github.com/Lazzar19/ScoutAI/internal/store"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/source"
+	"github.com/Lazzar19/RoleRadar/internal/store"
 )
 
 // Store is the persistence used while ingesting one snapshot.

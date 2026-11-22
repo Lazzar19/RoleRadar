@@ -3,7 +3,7 @@ package match
 import (
 	"strings"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
 )
 
 // DecideFacts scores a full posting from extracted facts.

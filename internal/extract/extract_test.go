@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Lazzar19/ScoutAI/prompts"
+	"github.com/Lazzar19/RoleRadar/prompts"
 )
 
 func TestPromptIsVersionedAndTreatsThePostingAsData(t *testing.T) {

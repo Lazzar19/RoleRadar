@@ -5,12 +5,12 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/scout .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/roleradar .
 
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates tzdata wget \
     && adduser -D -H -u 65532 app
-COPY --from=build /out/scout /usr/local/bin/scout
+COPY --from=build /out/roleradar /usr/local/bin/roleradar
 USER app
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/scout"]
+ENTRYPOINT ["/usr/local/bin/roleradar"]

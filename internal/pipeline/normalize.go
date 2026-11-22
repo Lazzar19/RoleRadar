@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
-	"github.com/Lazzar19/ScoutAI/internal/source"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/source"
 )
 
 // normalize prepares one posting for storage.

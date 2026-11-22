@@ -1,9 +1,9 @@
 package pipeline
 
 import (
-	"github.com/Lazzar19/ScoutAI/internal/domain"
-	"github.com/Lazzar19/ScoutAI/internal/match"
-	"github.com/Lazzar19/ScoutAI/internal/store"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/match"
+	"github.com/Lazzar19/RoleRadar/internal/store"
 )
 
 // keepRoleNotification reports whether this posting should be sent.

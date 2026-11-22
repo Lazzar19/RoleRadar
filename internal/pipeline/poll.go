@@ -6,12 +6,12 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
-	"github.com/Lazzar19/ScoutAI/internal/extract"
-	"github.com/Lazzar19/ScoutAI/internal/match"
-	"github.com/Lazzar19/ScoutAI/internal/source"
-	"github.com/Lazzar19/ScoutAI/internal/store"
-	"github.com/Lazzar19/ScoutAI/internal/worker"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/extract"
+	"github.com/Lazzar19/RoleRadar/internal/match"
+	"github.com/Lazzar19/RoleRadar/internal/source"
+	"github.com/Lazzar19/RoleRadar/internal/store"
+	"github.com/Lazzar19/RoleRadar/internal/worker"
 )
 
 // PollStore is the database access for one board or mailbox poll.

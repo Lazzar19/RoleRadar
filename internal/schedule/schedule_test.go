@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
-	"github.com/Lazzar19/ScoutAI/internal/store"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/store"
 )
 
 func TestDueWaitsForTheInterval(t *testing.T) {

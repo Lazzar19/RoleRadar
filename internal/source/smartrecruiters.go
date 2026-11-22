@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
 )
 
 const (
@@ -120,7 +120,7 @@ func (s SmartRecruiters) get(ctx context.Context, endpoint string) ([]byte, erro
 		return nil, fmt.Errorf("smartrecruiters: build request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "ScoutAI")
+	req.Header.Set("User-Agent", "RoleRadar")
 	resp, err := s.httpClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("smartrecruiters: request posting: %w", err)

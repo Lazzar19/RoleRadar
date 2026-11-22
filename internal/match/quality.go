@@ -1,6 +1,6 @@
 package match
 
-import "github.com/Lazzar19/ScoutAI/internal/domain"
+import "github.com/Lazzar19/RoleRadar/internal/domain"
 
 // Label is a relevance judgment taken from feedback.
 // Saved and already-applied choices are not relevance labels.

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Lazzar19/ScoutAI/internal/domain"
+	"github.com/Lazzar19/RoleRadar/internal/domain"
 )
 
 const (
@@ -43,7 +43,7 @@ func (a Ashby) Fetch(ctx context.Context, board string) (Snapshot, error) {
 		return Snapshot{}, fmt.Errorf("ashby: build request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "ScoutAI")
+	req.Header.Set("User-Agent", "RoleRadar")
 	resp, err := a.httpClient().Do(req)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("ashby: request board: %w", err)
