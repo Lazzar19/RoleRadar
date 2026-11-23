@@ -84,7 +84,7 @@ func (b *Bot) deliver(ctx context.Context, notification domain.Notification) err
 	if originalURL == "" {
 		originalURL = job.URL
 	}
-	text, err := b.messageText(ctx, notification, job, sourceName, originalURL)
+	text, err := b.messageText(ctx, notification, job, alertSourceName(sourceName, originalURL), originalURL)
 	if errors.Is(err, errSkip) {
 		return nil
 	}

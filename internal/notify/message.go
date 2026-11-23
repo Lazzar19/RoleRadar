@@ -138,6 +138,22 @@ func formatLocation(location domain.Location) string {
 	return raw
 }
 
+func alertSourceName(name, rawURL string) string {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return name
+	}
+	host := strings.ToLower(parsed.Hostname())
+	switch {
+	case host == "helloworld.rs" || strings.HasSuffix(host, ".helloworld.rs"):
+		return "HelloWorld"
+	case host == "linkedin.com" || strings.HasSuffix(host, ".linkedin.com"):
+		return "LinkedIn"
+	default:
+		return name
+	}
+}
+
 func orUnknown(value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {

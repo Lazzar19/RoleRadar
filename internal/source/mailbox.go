@@ -143,6 +143,12 @@ func (box IMAP) Fetch(ctx context.Context, afterID string) ([]MailMessage, error
 		return nil, fmt.Errorf("imap select mailbox: %w", err)
 	}
 	criteria := imap.NewSearchCriteria()
+	// Only job-alert senders. The inbox also holds invitations and newsletters.
+	linkedIn := imap.NewSearchCriteria()
+	linkedIn.Header.Add("From", "jobalerts-noreply@linkedin.com")
+	hello := imap.NewSearchCriteria()
+	hello.Header.Add("From", "noreply@helloworld.rs")
+	criteria.Or = [][2]*imap.SearchCriteria{{linkedIn, hello}}
 	if after > 0 {
 		if after == ^uint32(0) {
 			return nil, nil

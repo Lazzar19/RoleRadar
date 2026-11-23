@@ -74,7 +74,7 @@ func ingestMailbox(ctx context.Context, db PollStore, src domain.JobSource, box 
 			return discovered, stored, "", err
 		}
 
-		postings, parseErr := source.ParseLinkedInAlert(msg.Raw)
+		postings, parseErr := source.ParseJobAlert(msg.Raw)
 		received := msg.ReceivedAt.UTC()
 		if received.IsZero() {
 			received = time.Now().UTC()
