@@ -152,6 +152,18 @@ func TestSerbiaOutranksRemote(t *testing.T) {
 	}
 }
 
+func TestWorkFromHomeCountsAsRemote(t *testing.T) {
+	job := domain.Job{
+		Completeness: domain.CompletenessPreview,
+		Title:        "Fullstack Developer",
+		Locations:    []domain.Location{{Raw: "Rad od kuće"}},
+	}
+	outcome := Decide(job, studentProfile(), DefaultRules())
+	if !outcome.Notify {
+		t.Fatal("work from home was not eligible")
+	}
+}
+
 func TestUnknownFieldsDoNotZeroACriterion(t *testing.T) {
 	job := domain.Job{
 		Completeness: domain.CompletenessFull,

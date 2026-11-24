@@ -250,7 +250,7 @@ func overlapsNamed(jobText string, preferred []domain.Location) bool {
 }
 
 func overlapsRemote(jobText string, jobs, preferred []domain.Location) bool {
-	remoteJob := hasPhrase(jobText, "remote")
+	remoteJob := hasPhrase(jobText, "remote") || hasPhrase(jobText, "rad od kuce")
 	for _, location := range jobs {
 		if location.Remote {
 			remoteJob = true
